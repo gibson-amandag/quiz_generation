@@ -6,3 +6,5 @@ d2l_quiz_print.Rproj
 .DS_Store
 
 .Rproj.user/
+
+output/HTML_quizzes/questions_output*.html

@@ -1,5 +1,15 @@
 # Function to parse the XML file and extract sections and questions
 parse_d2l_xml <- function(xml_file) {
+    #  Check if the file exists and has contents
+  if (!file.exists(xml_file)) {
+    return(NULL)
+  }
+  
+  file_info <- file.info(xml_file)
+  if (file_info$size == 0) {
+    return(NULL)
+  }
+
   # Read the XML file
   xml <- read_xml(xml_file)
   
@@ -256,7 +266,8 @@ generate_quiz_html <- function(selected_questions, template_file, output_folder,
 
 
 
-generate_questions_html <- function(sections) {
+generate_questions_html <- function(sections, dispFormat = "list", showAnswers = FALSE, shuffleAnswers = TRUE, thisSeed = 123) {
+    set.seed(thisSeed)
   # Initialize HTML for questions
   questions_html <- ""
   
@@ -264,34 +275,69 @@ generate_questions_html <- function(sections) {
     # Add section title
     questions_html <- paste0(
       questions_html,
-      "<h3>", section$section_title, "</h3><ol>"
+      "<h3>", section$section_title, "</h3>"
     )
     
-    # Add questions
-    for (question in section$questions) {
-      # Clean up question text
-      question_text <- question$question_text
-      question_text <- sub("<p>", "", question_text) # Remove the first <p>
-      question_text <- sub("</p>", "", question_text) # Remove the first </p>
-      
-      # Start the question block
-      questions_html <- paste0(
-        questions_html,
-        "<li>", question_text, "<ol type='A'>"
-      )
-      
-      # Add answers
-      for (answer in question$answers) {
-        questions_html <- paste0(questions_html, "<li>", answer, "</li>")
+      # List format
+      if(dispFormat == "list"){
+        questions_html <- paste0(questions_html, "<ol>")
       }
-      
-      # Close the question block
-      questions_html <- paste0(questions_html, "</ol></li>")
+      question_number <- 1
+      for (question in section$questions) {
+        
+        # Clean up question text
+        question_text <- question$question_text
+        question_text <- sub("<p>", "", question_text) # Remove the first <p>
+        question_text <- sub("</p>", "", question_text) # Remove the first </p>
+        
+        # Start the question block
+        if(dispFormat == "list"){
+            questions_html <- paste0(
+            questions_html,
+            "<li>", question_text, "<ol type='A'>"
+            )
+        } else if (dispFormat == "div") {
+        # Start the question container
+        questions_html <- paste0(
+            questions_html,
+            "<div class='question-container'>",
+            "<div class='question-blank'></div>", # Blank column
+            "<div class='question-content'>",
+            "<strong>", question_number, ".</strong> ", question_text,
+            "<ol type='A'>"
+        )
+      }
+        
+        # Add answers
+        # Shuffle answers if the option is enabled
+        answer_options <- if (shuffleAnswers) sample(question$answers) else question$answers
+        
+        for (answer in answer_options) {
+          # Check if the answer is correct
+          is_correct <- answer %in% question$correct_answers
+          answer_class <- if (showAnswers && is_correct) "class='correct-answer'" else ""
+          
+          # Add the answer with the appropriate class
+          questions_html <- paste0(
+            questions_html,
+            "<li ", answer_class, ">", answer, "</li>"
+          )
+        }
+        
+        # Close the question block
+        questions_html <- paste0(questions_html, "</ol>")
+        if(dispFormat == "list"){
+            questions_html <- paste0(questions_html, "</li>")
+        } else if (dispFormat == "div") {
+          questions_html <- paste0(questions_html, "</div></div>")
+        }
+        question_number <- question_number + 1
+      }
+      # Close the section block
+      if(dispFormat == "list"){
+        questions_html <- paste0(questions_html, "</ol>")
+      }
     }
-    
-    # Close the section block
-    questions_html <- paste0(questions_html, "</ol>")
-  }
   
   return(questions_html)
 }
