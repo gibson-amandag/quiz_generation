@@ -1,0 +1,8 @@
+
+output/HTML_quizzes/Quiz*.html
+
+d2l_quiz_print.Rproj
+
+.DS_Store
+
+.Rproj.user/

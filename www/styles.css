@@ -1,0 +1,77 @@
+body {
+    font-family: Arial, sans-serif;
+    font-size: 11pt;
+    /* border-spacing: 0; 
+    border-collapse: separate; */
+}
+
+h1 {
+    text-align: left;
+    margin-bottom: 10px;
+}
+
+ol:not([type="A"]) {
+    padding-left: 18px; /* Add space for the list numbers */
+    list-style-position: outside;
+}
+
+ol[type="A"] {
+    margin-left: 20px;
+    margin-bottom: 15px;
+    margin-top: 0px; /* Ensure no top margin for the first ol[type="A"] */
+}
+
+ol[type="A"] li p:first-child {
+    margin-top: 0px;
+}
+
+/* Container for each question */
+body > .question-container {
+    display: flex;
+    /* margin-bottom: 10px; */
+    border: 2px solid black; /* Add a single border around the question */
+    /* border-top: none; Remove the top border for all but the first question */
+}
+
+/* Blank column (first column) */
+.question-blank {
+    width: 0.5in; /* Fixed width for the blank column */
+    border-right: 2px solid black; /* Right border to separate from content */
+}
+
+/* Content column (second column) */
+.question-content {
+    flex: 1; /* Take up the remaining space */
+    padding-left: 10px; /* Add some padding */
+}
+
+/* Style for the question text */
+.question-content p {
+    margin: 0 0 10px; /* Add spacing below the question text */
+}
+
+/* Define styles for printing */
+@media print {
+    @page {
+        margin: 0.75in; /* Adjust the page margins */
+          @bottom-center {
+            content: "Figures created with biorender.com";
+            font-style: italic;
+            font-family: Arial, sans-serif;
+            font-size: 11pt;
+          }
+        @top-right {
+            content: counter(page) " of " counter(pages);
+            white-space: pre;
+            display: block;
+            font-family: Arial, sans-serif;
+            font-size: 11pt;
+        }
+    }
+    .question-container {
+        page-break-inside: avoid; /* Prevent <li> from breaking across pages */
+    }
+    ol:not([type="A"]) > li {
+        page-break-inside: avoid; /* Prevent <li> from breaking across pages */
+    }
+}
