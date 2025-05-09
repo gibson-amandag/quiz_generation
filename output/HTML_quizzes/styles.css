@@ -1,8 +1,6 @@
 body {
     font-family: Arial, sans-serif;
     font-size: 11pt;
-    /* border-spacing: 0; 
-    border-collapse: separate; */
 }
 
 h1 {
@@ -17,7 +15,7 @@ ol:not([type="A"]) {
 
 ol[type="A"] {
     margin-left: 20px;
-    margin-bottom: 15px;
+    margin-bottom: 10px;
     margin-top: 0px; /* Ensure no top margin for the first ol[type="A"] */
 }
 
@@ -54,6 +52,18 @@ ol[type="A"] li p:first-child {
     font-weight: bold;
     color: green;
   }
+.correct-letter {
+    font-weight: bold;
+    font-size: 18pt;
+    text-align: center;
+    color: blue;
+  }
+
+td {
+    border: 1px solid black;
+    padding-left: 5px;
+    padding-right: 5px;
+}
 
 /* Define styles for printing */
 @media print {
@@ -75,6 +85,9 @@ ol[type="A"] li p:first-child {
     }
     .question-container {
         page-break-inside: avoid; /* Prevent <li> from breaking across pages */
+    }
+    .tr {
+        page-break-inside: avoid;
     }
     ol:not([type="A"]) > li {
         page-break-inside: avoid; /* Prevent <li> from breaking across pages */
