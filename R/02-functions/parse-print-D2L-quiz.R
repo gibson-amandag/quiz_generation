@@ -210,8 +210,13 @@ parse_true_false_question <- function(item, ns) {
     xml_text(xml_find_first(answer, ".//mattext", ns))
   })
 
-  # Determine the correct answer
-  correct_answer <- xml_text(xml_find_first(item, ".//varequal", ns))
+  # Extract the correct answer identifier from <respcondition>
+  correct_answer_ident <- xml_text(xml_find_first(item, ".//respcondition/conditionvar/varequal", ns))
+
+  # Match the correct answer identifier to its text
+  correct_answer <- answer_texts[which(sapply(answers, function(answer) {
+    xml_attr(answer, "ident")
+  }) == correct_answer_ident)]
 
   list(
     question_id = question_id,
@@ -544,17 +549,14 @@ generate_quiz_html <- function(selected_questions, template_file, output_folder,
   message("Excel-friendly answer key has been saved to ", excel_key_file)
 }
 
-
-
 generate_questions_html <- function(sections, dispFormat = "list", showAnswers = FALSE, shuffleAnswers = TRUE, thisSeed = 123, showSectionTitles = TRUE, sampledQuestions = FALSE) {
   set.seed(thisSeed)
   # Initialize HTML for questions
   questions_html <- ""
 
-
   if (!showSectionTitles) {
     question_number <- 1
-    # initalize answer key table
+    # Initialize answer key table
     answer_key_df <- data.frame(
       questionNum = integer(),
       correctAnswer = character(),
@@ -575,7 +577,7 @@ generate_questions_html <- function(sections, dispFormat = "list", showAnswers =
   for (section in sections) {
     # Add section title
     if (showSectionTitles) {
-      if((section$section_title %in% c("Uncategorized", "Uncategorized Questions"))){
+      if ((section$section_title %in% c("Uncategorized", "Uncategorized Questions"))) {
         title <- " "
       } else {
         title <- section$section_title
@@ -608,95 +610,42 @@ generate_questions_html <- function(sections, dispFormat = "list", showAnswers =
     }
 
     for (question in sectionQuestions) {
-      # Clean up question text
-      question_text <- question$question_text
-      question_text <- sub("<p>", "", question_text) # Remove the first <p>
-      question_text <- sub("</p>", "", question_text) # Remove the first </p>
+      # Render the question HTML
+      rendered_question <- render_question_html(
+        question = question,
+        question_number = question_number,
+        dispFormat = dispFormat,
+        showAnswers = showAnswers,
+        shuffleAnswers = shuffleAnswers
+      )
 
-      if (dispFormat == "list") {
-        # Start the question block for list format
-        questions_html <- paste0(
-          questions_html,
-          "<li>", question_text, "<ol type='A'>"
-        )
-      } else if (dispFormat == "div") {
-        # Start the question container for div format
-        questions_html <- paste0(
-          questions_html,
-          "<div class='question-container'>",
-          "<div class='question-blank'></div>", # Blank column
-          "<div class='question-content'>",
-          "<strong>", question_number, ".</strong> ", question_text,
-          "<ol type='A'>"
-        )
-      } else if (dispFormat == "table") {
-        # Add a row to the table for the question
-        questions_html <- paste0(
-          questions_html,
-          "<tr>",
-          "<td>&nbsp;</td>",
-          "<td>",
-          "<strong>", question_number, ".</strong> ", question_text,
-          "<ol type='A'>"
-        )
-      }
+      questions_html <- paste0(questions_html, rendered_question$html)
 
-      # Shuffle answers if the option is enabled
-      answer_options <- if (shuffleAnswers) sample(question$answers) else question$answers
-
-      correct_letter <- LETTERS[which(answer_options %in% question$correct_answers)]
-      if (dispFormat == "table" && showAnswers && any(answer_options %in% question$correct_answers)) {
-        correct_letters <- paste(correct_letter, collapse = ", ") # Combine multiple correct letters
-        questions_html <- sub("(.*)<td>&nbsp;</td>(.*)$", paste0("\\1<td class='correct-letter'>", correct_letters, "</td>\\2"), questions_html)
-      }
-
+      # Add the correct answer to the answer key
+      correct_letter <- rendered_question$correct_letter
       if (!is.null(correct_letter) && length(correct_letter) > 0) {
         if (showSectionTitles) {
           # Add the section number to the answer key
           answer_key_df <- rbind(
-        answer_key_df,
-        data.frame(
-          questionNum = question_number,
-          correctAnswer = correct_letter,
-          section = sectionNum,
-          stringsAsFactors = FALSE
-        )
+            answer_key_df,
+            data.frame(
+              questionNum = question_number,
+              correctAnswer = correct_letter,
+              section = sectionNum,
+              stringsAsFactors = FALSE
+            )
           )
         } else {
           # Add the question number to the answer key
           answer_key_df <- rbind(
-        answer_key_df,
-        data.frame(
-          questionNum = question_number,
-          correctAnswer = correct_letter,
-          stringsAsFactors = FALSE
-        )
+            answer_key_df,
+            data.frame(
+              questionNum = question_number,
+              correctAnswer = correct_letter,
+              stringsAsFactors = FALSE
+            )
           )
         }
-      }
-      
-      for (answer in answer_options) {
-        # Check if the answer is correct
-        is_correct <- answer %in% question$correct_answers
-        answer_class <- if (showAnswers && is_correct) "class='correct-answer'" else ""
-
-
-
-        questions_html <- paste0(
-          questions_html,
-          "<li ", answer_class, ">", answer, "</li>"
-        )
-      }
-
-      if (dispFormat == "list") {
-        # Close the question block for list format
-        questions_html <- paste0(questions_html, "</ol></li>")
-      } else if (dispFormat == "div") {
-        # Close the question container for div format
-        questions_html <- paste0(questions_html, "</ol></div></div>")
-      } else if (dispFormat == "table") {
-        # Close the table row for the question
-        questions_html <- paste0(questions_html, "</ol></td></tr>")
       }
 
       question_number <- question_number + 1
@@ -710,7 +659,7 @@ generate_questions_html <- function(sections, dispFormat = "list", showAnswers =
       questions_html <- paste0(questions_html, "</table>")
     }
     firstSection <- FALSE
-    if(showSectionTitles){
+    if (showSectionTitles) {
       sectionNum <- sectionNum + 1
     }
   }
@@ -727,4 +676,74 @@ generate_questions_html <- function(sections, dispFormat = "list", showAnswers =
     questions = questions_html,
     answers = answer_key_df
   ))
+}
+
+render_question_html <- function(question, question_number, dispFormat, showAnswers, shuffleAnswers) {
+  # Clean up question text
+  question_text <- question$question_text
+  question_text <- sub("<p>", "", question_text) # Remove the first <p>
+  question_text <- sub("</p>", "", question_text) # Remove the first </p>
+  question$question_text <- question_text
+
+  # Shuffle answers if the option is enabled
+  answer_options <- if (shuffleAnswers) sample(question$answers) else question$answers
+
+  # Determine the correct answer letters
+  correct_letter <- LETTERS[which(answer_options %in% question$correct_answers)]
+
+  # Initialize the HTML for the question
+  question_html <- ""
+
+  if (dispFormat == "list") {
+    # Start the question block for list format
+    question_html <- paste0(
+      "<li>", question_text, "<ol type='A'>"
+    )
+  } else if (dispFormat == "div") {
+    # Start the question container for div format
+    question_html <- paste0(
+      "<div class='question-container'>",
+      "<div class='question-blank'></div>", # Blank column
+      "<div class='question-content'>",
+      "<strong>", question_number, ".</strong> ", question_text,
+      "<ol type='A'>"
+    )
+  } else if (dispFormat == "table") {
+    # Add a row to the table for the question
+    question_html <- paste0(
+      "<tr>",
+      "<td>&nbsp;</td>",
+      "<td>",
+      "<strong>", question_number, ".</strong> ", question_text,
+      "<ol type='A'>"
+    )
+  }
+
+  # Add the answer options
+  for (answer in answer_options) {
+    # Check if the answer is correct
+    is_correct <- answer %in% question$correct_answers
+    answer_class <- if (showAnswers && is_correct) "class='correct-answer'" else ""
+
+    question_html <- paste0(
+      question_html,
+      "<li ", answer_class, ">", answer, "</li>"
+    )
+  }
+  
+  if (dispFormat == "table" && showAnswers && any(answer_options %in% question$correct_answers)) {
+    correct_letters <- paste(correct_letter, collapse = ", ") # Combine multiple correct letters
+    question_html <- sub("(.*)<td>&nbsp;</td>(.*)$", paste0("\\1<td class='correct-letter'>", correct_letters, "</td>\\2"), question_html)
+  }
+
+  # Close the question block based on the display format
+  if (dispFormat == "list") {
+    question_html <- paste0(question_html, "</ol></li>")
+  } else if (dispFormat == "div") {
+    question_html <- paste0(question_html, "</ol></div></div>")
+  } else if (dispFormat == "table") {
+    question_html <- paste0(question_html, "</ol></td></tr>")
+  }
+
+  return(list(html = question_html, correct_letter = correct_letter))
 }
