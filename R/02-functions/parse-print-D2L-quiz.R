@@ -38,12 +38,21 @@ parse_d2l_xml <- function(xml_file) {
     if (xml_name(child) == "item") {
       # If the child is an <item>, treat it as an uncategorized question
       question <- parse_question(child, ns)
+      
+      # Check if the last section in the list is uncategorized
+      if (length(sections) > 0 && sections[[length(sections)]]$section_id == "UNCATEGORIZED") {
+      # Add the question to the existing uncategorized section
+      sections[[length(sections)]]$questions <- append(sections[[length(sections)]]$questions, list(question))
+      sections[[length(sections)]]$num_items <- sections[[length(sections)]]$num_items + 1
+      } else {
+      # Create a new uncategorized section
       sections <- append(sections, list(list(
         section_id = "UNCATEGORIZED",
         section_title = "Uncategorized",
         num_items = 1,
         questions = list(question)
       )))
+      }
     } else if (xml_name(child) == "section") {
       # If the child is a <section>, parse it as a section
       section <- parse_section(child, ns)
@@ -93,8 +102,24 @@ parse_question <- function(item, ns) {
   # Call the appropriate parsing function based on the question type
   if (question_type == "Multiple Choice") {
     parse_multiple_choice_question(item, ns)
+  } else if (question_type == "True/False") {
+    parse_true_false_question(item, ns)
+  } else if (question_type == "Fill in the Blanks") {
+    parse_fill_in_the_blanks_question(item, ns)
+  } else if (question_type == "Multi-Select") {
+    parse_multi_select_question(item, ns)
   } else if (question_type == "Matching") {
     parse_matching_question(item, ns)
+  } else if (question_type == "Ordering") {
+    parse_ordering_question(item, ns)
+  } else if (question_type == "Short Answer") {
+    parse_short_answer_question(item, ns)
+  } else if (question_type == "Arithmetic") {
+    parse_arithmetic_question(item, ns)
+  } else if (question_type == "Significant Figures") {
+    parse_significant_figures_question(item, ns)
+  } else if (question_type == "Multi-Short Answer") {
+    parse_multi_short_answer_question(item, ns)
   } else if (question_type == "Long Answer") {
     parse_long_answer_question(item, ns)
   } else {
@@ -172,6 +197,170 @@ parse_long_answer_question <- function(item, ns) {
     question_id = question_id,
     question_text = question_text,
     question_type = "Long Answer"
+  )
+}
+
+parse_true_false_question <- function(item, ns) {
+  question_id <- xml_attr(item, "ident")
+  question_text <- xml_text(xml_find_first(item, ".//mattext", ns))
+
+  # Extract answer options (True/False)
+  answers <- xml_find_all(item, ".//response_label", ns)
+  answer_texts <- sapply(answers, function(answer) {
+    xml_text(xml_find_first(answer, ".//mattext", ns))
+  })
+
+  # Determine the correct answer
+  correct_answer <- xml_text(xml_find_first(item, ".//varequal", ns))
+
+  list(
+    question_id = question_id,
+    question_text = question_text,
+    question_type = "True/False",
+    answers = answer_texts,
+    correct_answer = correct_answer
+  )
+}
+
+parse_fill_in_the_blanks_question <- function(item, ns) {
+  question_id <- xml_attr(item, "ident")
+  question_text <- xml_text(xml_find_first(item, ".//mattext", ns))
+
+  # Extract correct answers
+  correct_answers <- xml_find_all(item, ".//varequal", ns)
+  correct_answers_text <- sapply(correct_answers, xml_text)
+
+  list(
+    question_id = question_id,
+    question_text = question_text,
+    question_type = "Fill in the Blanks",
+    correct_answers = correct_answers_text
+  )
+}
+
+parse_multi_select_question <- function(item, ns) {
+  question_id <- xml_attr(item, "ident")
+  question_text <- xml_text(xml_find_first(item, ".//mattext", ns))
+
+  # Extract all answer options
+  answers <- xml_find_all(item, ".//response_label", ns)
+  answer_texts <- sapply(answers, function(answer) {
+    xml_text(xml_find_first(answer, ".//mattext", ns))
+  })
+  answer_idents <- sapply(answers, function(answer) {
+    xml_attr(answer, "ident")
+  })
+
+  # Extract correct answer identifiers from <respcondition>
+  correct_answers <- xml_find_all(item, ".//respcondition/conditionvar/varequal", ns)
+  correct_answer_idents <- sapply(correct_answers, xml_text)
+
+  # Match correct answer identifiers to their texts
+  correct_answer_texts <- answer_texts[answer_idents %in% correct_answer_idents]
+
+  list(
+    question_id = question_id,
+    question_text = question_text,
+    question_type = "Multi-Select",
+    answers = answer_texts,
+    correct_answers = correct_answer_texts
+  )
+}
+
+parse_ordering_question <- function(item, ns) {
+  question_id <- xml_attr(item, "ident")
+  question_text <- xml_text(xml_find_first(item, ".//mattext", ns))
+
+  # Extract ordering options
+  answers <- xml_find_all(item, ".//response_label", ns)
+  answer_texts <- sapply(answers, function(answer) {
+    xml_text(xml_find_first(answer, ".//mattext", ns))
+  })
+
+  # Extract correct order
+  correct_order <- sapply(answers, function(answer) {
+    xml_attr(answer, "ident")
+  })
+
+  list(
+    question_id = question_id,
+    question_text = question_text,
+    question_type = "Ordering",
+    answers = answer_texts,
+    correct_order = correct_order
+  )
+}
+
+parse_short_answer_question <- function(item, ns) {
+  question_id <- xml_attr(item, "ident")
+  question_text <- xml_text(xml_find_first(item, ".//mattext", ns))
+
+  # Extract correct answers
+  correct_answers <- xml_find_all(item, ".//varequal", ns)
+  correct_answers_text <- sapply(correct_answers, xml_text)
+
+  list(
+    question_id = question_id,
+    question_text = question_text,
+    question_type = "Short Answer",
+    correct_answers = correct_answers_text
+  )
+}
+
+parse_arithmetic_question <- function(item, ns) {
+  question_id <- xml_attr(item, "ident")
+  question_text <- xml_text(xml_find_first(item, ".//mattext", ns))
+
+  # Extract formula and variables
+  formula <- xml_text(xml_find_first(item, ".//formula", ns))
+  variables <- xml_find_all(item, ".//variable", ns)
+  variable_details <- lapply(variables, function(var) {
+    list(
+      name = xml_attr(var, "name"),
+      minvalue = xml_text(xml_find_first(var, ".//minvalue", ns)),
+      maxvalue = xml_text(xml_find_first(var, ".//maxvalue", ns))
+    )
+  })
+
+  list(
+    question_id = question_id,
+    question_text = question_text,
+    question_type = "Arithmetic",
+    formula = formula,
+    variables = variable_details
+  )
+}
+
+parse_significant_figures_question <- function(item, ns) {
+  question_id <- xml_attr(item, "ident")
+  question_text <- xml_text(xml_find_first(item, ".//mattext", ns))
+
+  # Extract formula and precision
+  formula <- xml_text(xml_find_first(item, ".//formula", ns))
+  precision <- xml_text(xml_find_first(item, ".//precision", ns))
+
+  list(
+    question_id = question_id,
+    question_text = question_text,
+    question_type = "Significant Figures",
+    formula = formula,
+    precision = precision
+  )
+}
+
+parse_multi_short_answer_question <- function(item, ns) {
+  question_id <- xml_attr(item, "ident")
+  question_text <- xml_text(xml_find_first(item, ".//mattext", ns))
+
+  # Extract correct answers
+  correct_answers <- xml_find_all(item, ".//varequal", ns)
+  correct_answers_text <- sapply(correct_answers, xml_text)
+
+  list(
+    question_id = question_id,
+    question_text = question_text,
+    question_type = "Multi-Short Answer",
+    correct_answers = correct_answers_text
   )
 }
 
@@ -386,9 +575,14 @@ generate_questions_html <- function(sections, dispFormat = "list", showAnswers =
   for (section in sections) {
     # Add section title
     if (showSectionTitles) {
+      if((section$section_title %in% c("Uncategorized", "Uncategorized Questions"))){
+        title <- " "
+      } else {
+        title <- section$section_title
+      }
       questions_html <- paste0(
         questions_html,
-        "<h3>", section$section_title, "</h3>"
+        "<h3>", title, "</h3>"
       )
       question_number <- 1
     }
@@ -452,7 +646,8 @@ generate_questions_html <- function(sections, dispFormat = "list", showAnswers =
 
       correct_letter <- LETTERS[which(answer_options %in% question$correct_answers)]
       if (dispFormat == "table" && showAnswers && any(answer_options %in% question$correct_answers)) {
-        questions_html <- sub("(.*)<td>&nbsp;</td>(.*)$", paste0("\\1<td class='correct-letter'>", correct_letter, "</td>\\2"), questions_html)
+        correct_letters <- paste(correct_letter, collapse = ", ") # Combine multiple correct letters
+        questions_html <- sub("(.*)<td>&nbsp;</td>(.*)$", paste0("\\1<td class='correct-letter'>", correct_letters, "</td>\\2"), questions_html)
       }
 
       if (!is.null(correct_letter) && length(correct_letter) > 0) {
