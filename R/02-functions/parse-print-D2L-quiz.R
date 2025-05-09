@@ -678,65 +678,141 @@ generate_questions_html <- function(sections, dispFormat = "list", showAnswers =
   ))
 }
 
+# Main function to render question HTML
 render_question_html <- function(question, question_number, dispFormat, showAnswers, shuffleAnswers) {
-  # Clean up question text
-  question_text <- question$question_text
-  question_text <- sub("<p>", "", question_text) # Remove the first <p>
-  question_text <- sub("</p>", "", question_text) # Remove the first </p>
-  question$question_text <- question_text
+  # Define a mapping of question types to rendering functions
+  render_functions <- list(
+    "Multiple Choice" = render_multiple_choice,
+    "Multi-Select" = render_multiple_choice,
+    "True/False" = render_true_false,
+    "Short Answer" = render_short_answer,
+    "Fill in the Blanks" = render_short_answer,
+    "Matching" = render_matching,
+    "Long Answer" = render_long_answer,
+    "Ordering" = render_ordering,
+    "Arithmetic" = render_arithmetic,
+    "Significant Figures" = render_significant_figures,
+    "Multi-Short Answer" = render_multi_short_answer
+  )
+  
+  # Check if the question type has a corresponding rendering function
+  if (!question$question_type %in% names(render_functions)) {
+    warning(paste("Unsupported question type:", question$question_type))
+    return(list(html = paste0("<li>Unsupported question type: ", question$question_type, "</li>"), correct_letter = NULL))
+  }
+  
+  # Call the appropriate rendering function
+  render_function <- render_functions[[question$question_type]]
+  return(render_function(question, question_number, dispFormat, showAnswers, shuffleAnswers))
+}
 
-  # Shuffle answers if the option is enabled
+# Function to render Multiple Choice or Multi-Select questions
+render_multiple_choice <- function(question, question_number, dispFormat, showAnswers, shuffleAnswers) {
   answer_options <- if (shuffleAnswers) sample(question$answers) else question$answers
-
-  # Determine the correct answer letters
   correct_letter <- LETTERS[which(answer_options %in% question$correct_answers)]
+  
+  question_html <- render_question_block(question$question_text, question_number, dispFormat, answer_options, correct_letter, showAnswers)
+  return(list(html = question_html, correct_letter = correct_letter))
+}
 
-  # Initialize the HTML for the question
-  question_html <- ""
+# Function to render True/False questions
+render_true_false <- function(question, question_number, dispFormat, showAnswers, shuffleAnswers) {
+  answer_options <- c("True", "False")
+  correct_letter <- ifelse("True" %in% question$correct_answers, "A", "B")
+  
+  question_html <- render_question_block(
+    question_text = question$question_text,
+    question_number = question_number,
+    dispFormat = dispFormat,
+    answer_options = answer_options,
+    correct_letter = correct_letter,
+    showAnswers = showAnswers
+  )
+  
+  return(list(html = question_html, correct_letter = correct_letter))
+}
 
-  if (dispFormat == "list") {
-    # Start the question block for list format
+# Function to render Short Answer or Fill in the Blanks questions
+render_short_answer <- function(question, question_number, dispFormat, showAnswers, shuffleAnswers) {
+  if (dispFormat == "table") {
     question_html <- paste0(
-      "<li>", question_text, "<ol type='A'>"
+      "<tr>",
+      "<td>&nbsp;</td>",
+      "<td>",
+      "<strong>", question_number, ".</strong> ", question$question_text,
+      "<div><em>Answer:</em> ___________________________</div>",
+      "</td></tr>"
     )
+  } else {
+    question_html <- paste0(
+      "<li>", question$question_text,
+      "<div><em>Answer:</em> ___________________________</div>",
+      "</li>"
+    )
+  }
+  
+  return(list(html = question_html, correct_letter = NULL))
+}
+
+# Function to render Matching questions
+render_matching <- function(question, question_number, dispFormat, showAnswers, shuffleAnswers) {
+  question_html <- paste0("<li>", question$question_text, "<ul>")
+  for (pair in question$matching_pairs) {
+    question_html <- paste0(
+      question_html,
+      "<li><strong>", pair$prompt, "</strong>: ", paste(pair$choices, collapse = ", "), "</li>"
+    )
+  }
+  question_html <- paste0(question_html, "</ul></li>")
+  return(list(html = question_html, correct_letter = NULL))
+}
+
+# Function to render Long Answer questions
+render_long_answer <- function(question, question_number, dispFormat, showAnswers, shuffleAnswers) {
+  question_html <- paste0(
+    "<li>", question$question_text,
+    "<div><em>Answer:</em></div>",
+    "<textarea rows='5' cols='50'></textarea>",
+    "</li>"
+  )
+  return(list(html = question_html, correct_letter = NULL))
+}
+
+# Helper function to render a question block
+render_question_block <- function(question_text, question_number, dispFormat, answer_options, correct_letter, showAnswers) {
+  question_html <- ""
+  
+  if (dispFormat == "list") {
+    # List format
+    question_html <- paste0("<li>", question_text, "<ol type='A'>")
   } else if (dispFormat == "div") {
-    # Start the question container for div format
+    # Div format
     question_html <- paste0(
       "<div class='question-container'>",
-      "<div class='question-blank'></div>", # Blank column
+      "<div class='question-blank'></div>",
       "<div class='question-content'>",
       "<strong>", question_number, ".</strong> ", question_text,
       "<ol type='A'>"
     )
   } else if (dispFormat == "table") {
-    # Add a row to the table for the question
+    # Table format
     question_html <- paste0(
       "<tr>",
-      "<td>&nbsp;</td>",
+      "<td style='width: 0.7in;'>", if (showAnswers && !is.null(correct_letter)) paste(correct_letter, collapse = ", ") else "&nbsp;", "</td>",
       "<td>",
       "<strong>", question_number, ".</strong> ", question_text,
       "<ol type='A'>"
     )
   }
-
-  # Add the answer options
+  
+  # Add answer options
   for (answer in answer_options) {
-    # Check if the answer is correct
-    is_correct <- answer %in% question$correct_answers
+    is_correct <- answer %in% correct_letter
     answer_class <- if (showAnswers && is_correct) "class='correct-answer'" else ""
-
-    question_html <- paste0(
-      question_html,
-      "<li ", answer_class, ">", answer, "</li>"
-    )
+    question_html <- paste0(question_html, "<li ", answer_class, ">", answer, "</li>")
   }
   
-  if (dispFormat == "table" && showAnswers && any(answer_options %in% question$correct_answers)) {
-    correct_letters <- paste(correct_letter, collapse = ", ") # Combine multiple correct letters
-    question_html <- sub("(.*)<td>&nbsp;</td>(.*)$", paste0("\\1<td class='correct-letter'>", correct_letters, "</td>\\2"), question_html)
-  }
-
-  # Close the question block based on the display format
+  # Close the HTML structure
   if (dispFormat == "list") {
     question_html <- paste0(question_html, "</ol></li>")
   } else if (dispFormat == "div") {
@@ -744,6 +820,98 @@ render_question_html <- function(question, question_number, dispFormat, showAnsw
   } else if (dispFormat == "table") {
     question_html <- paste0(question_html, "</ol></td></tr>")
   }
-
-  return(list(html = question_html, correct_letter = correct_letter))
+  
+  return(question_html)
 }
+
+# Function to render Ordering questions
+render_ordering <- function(question, question_number, dispFormat, showAnswers, shuffleAnswers) {
+  answer_options <- if (shuffleAnswers) sample(question$answers) else question$answers
+  correct_order <- question$correct_order
+  
+  question_html <- paste0(
+    "<li>", question$question_text,
+    "<ol type='1'>"
+  )
+  
+  for (answer in answer_options) {
+    question_html <- paste0(question_html, "<li>", answer, "</li>")
+  }
+  
+  question_html <- paste0(question_html, "</ol>")
+  
+  if (showAnswers) {
+    correct_order_html <- paste(correct_order, collapse = ", ")
+    question_html <- paste0(
+      question_html,
+      "<div><em>Correct Order:</em> ", correct_order_html, "</div>"
+    )
+  }
+  
+  question_html <- paste0(question_html, "</li>")
+  return(list(html = question_html, correct_letter = NULL))
+}
+
+# Function to render Arithmetic questions
+render_arithmetic <- function(question, question_number, dispFormat, showAnswers, shuffleAnswers) {
+  question_html <- paste0(
+    "<li>", question$question_text,
+    "<div><em>Formula:</em> ", question$formula, "</div>"
+  )
+  
+  if (showAnswers) {
+    variables_html <- paste(
+      sapply(question$variables, function(var) {
+        paste0(var$name, " (", var$minvalue, " to ", var$maxvalue, ")")
+      }),
+      collapse = ", "
+    )
+    question_html <- paste0(
+      question_html,
+      "<div><em>Variables:</em> ", variables_html, "</div>"
+    )
+  }
+  
+  question_html <- paste0(question_html, "</li>")
+  return(list(html = question_html, correct_letter = NULL))
+}
+
+# Function to render Significant Figures questions
+render_significant_figures <- function(question, question_number, dispFormat, showAnswers, shuffleAnswers) {
+  question_html <- paste0(
+    "<li>", question$question_text,
+    "<div><em>Formula:</em> ", question$formula, "</div>"
+  )
+  
+  if (showAnswers) {
+    question_html <- paste0(
+      question_html,
+      "<div><em>Precision:</em> ", question$precision, "</div>"
+    )
+  }
+  
+  question_html <- paste0(question_html, "</li>")
+  return(list(html = question_html, correct_letter = NULL))
+}
+
+# Function to render Multi-Short Answer questions
+render_multi_short_answer <- function(question, question_number, dispFormat, showAnswers, shuffleAnswers) {
+  question_html <- paste0(
+    "<li>", question$question_text,
+    "<div><em>Answers:</em></div><ul>"
+  )
+  
+  for (answer in question$correct_answers) {
+    question_html <- paste0(
+      question_html,
+      "<li>___________________________</li>"
+    )
+  }
+  
+  question_html <- paste0(question_html, "</ul></li>")
+  return(list(html = question_html, correct_letter = NULL))
+}
+
+
+# rethink how these rendering functions work. Should create the "inside" html for the question itself, but then regardless of the question type, it should all be added within an <li> if list or within a <tr> if table
+# the correct answer, which we've pulled out for a key, can be added to the answer box when constructing the row
