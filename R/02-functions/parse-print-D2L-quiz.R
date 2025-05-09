@@ -223,7 +223,7 @@ parse_true_false_question <- function(item, ns) {
     question_text = question_text,
     question_type = "True/False",
     answers = answer_texts,
-    correct_answer = correct_answer
+    correct_answers = correct_answer
   )
 }
 
@@ -685,65 +685,206 @@ render_question_html <- function(question, question_number, dispFormat, showAnsw
   question_text <- sub("</p>", "", question_text) # Remove the first </p>
   question$question_text <- question_text
 
-  # Shuffle answers if the option is enabled
-  answer_options <- if (shuffleAnswers) sample(question$answers) else question$answers
-
-  # Determine the correct answer letters
-  correct_letter <- LETTERS[which(answer_options %in% question$correct_answers)]
-
   # Initialize the HTML for the question
-  question_html <- ""
+  questionInfo <- render_internalQuestion_html(
+    question = question,
+    question_number = question_number,
+    dispFormat = dispFormat,
+    showAnswers = showAnswers,
+    shuffleAnswers = shuffleAnswers
+  )
 
-  if (dispFormat == "list") {
-    # Start the question block for list format
+  question_html <- questionInfo$html
+
+  if(dispFormat == "list"){
     question_html <- paste0(
-      "<li>", question_text, "<ol type='A'>"
+      "<li>", question_html, "</li>"
     )
-  } else if (dispFormat == "div") {
-    # Start the question container for div format
+  } else if(dispFormat == "div"){
     question_html <- paste0(
       "<div class='question-container'>",
       "<div class='question-blank'></div>", # Blank column
       "<div class='question-content'>",
-      "<strong>", question_number, ".</strong> ", question_text,
-      "<ol type='A'>"
+      "<strong>", question_number, ".</strong> ", question_html,
+      "</div></div>"
     )
-  } else if (dispFormat == "table") {
-    # Add a row to the table for the question
+  } else if(dispFormat == "table"){
     question_html <- paste0(
       "<tr>",
-      "<td>&nbsp;</td>",
+      if(showAnswers) paste0("<td class='correct-letter'>", questionInfo$correct_answer,"</td>") else "<td>&nbsp;</td>",
       "<td>",
-      "<strong>", question_number, ".</strong> ", question_text,
-      "<ol type='A'>"
+      "<strong>", question_number, ".</strong> ", question_html,
+      "</td></tr>"
     )
   }
-
-  # Add the answer options
-  for (answer in answer_options) {
-    # Check if the answer is correct
-    is_correct <- answer %in% question$correct_answers
-    answer_class <- if (showAnswers && is_correct) "class='correct-answer'" else ""
-
-    question_html <- paste0(
-      question_html,
-      "<li ", answer_class, ">", answer, "</li>"
-    )
-  }
-  
-  if (dispFormat == "table" && showAnswers && any(answer_options %in% question$correct_answers)) {
-    correct_letters <- paste(correct_letter, collapse = ", ") # Combine multiple correct letters
-    question_html <- sub("(.*)<td>&nbsp;</td>(.*)$", paste0("\\1<td class='correct-letter'>", correct_letters, "</td>\\2"), question_html)
-  }
-
-  # Close the question block based on the display format
-  if (dispFormat == "list") {
-    question_html <- paste0(question_html, "</ol></li>")
-  } else if (dispFormat == "div") {
-    question_html <- paste0(question_html, "</ol></div></div>")
-  } else if (dispFormat == "table") {
-    question_html <- paste0(question_html, "</ol></td></tr>")
-  }
-
-  return(list(html = question_html, correct_letter = correct_letter))
+  return(list(html = question_html, correct_letter = questionInfo$correct_answer))
 }
+
+render_internalQuestion_html <- function(question, question_number, dispFormat, showAnswers, shuffleAnswers) {
+  # Initialize question_html to an empty string to avoid NULL issues
+  question_html <- ""
+  question_html <- paste0(
+    question_html, question$question_text
+  )
+
+  # Determine the question type and render accordingly
+  result <- case_when(
+    question$question_type %in% c("Multiple Choice", "True/False", "Multi-Select") ~ {
+      # Shuffle answers if the option is enabled
+      answer_options <- if (shuffleAnswers) sample(question$answers) else question$answers
+
+      # Determine the correct answer letters
+      correct_letter <- LETTERS[which(answer_options %in% question$correct_answers)]
+
+      # Answer text
+      correct_answer_text <- paste(correct_letter, collapse = ", ")
+
+      if (question$question_type == "Multi-Select") {
+        question_html <- paste0(
+          question_html, " <em>(Select all that apply)</em>"
+        )
+      }
+      question_html <- paste0(
+        question_html, "<ol type='A'>"
+      )
+
+      # Add the answer options
+      for (answer in answer_options) {
+        # Check if the answer is correct
+        is_correct <- answer %in% question$correct_answers
+        answer_class <- if (showAnswers && is_correct) "class='correct-answer'" else ""
+
+        question_html <- paste0(
+          question_html,
+          "<li ", answer_class, ">", answer, "</li>"
+        )
+      }
+      question_html <- paste0(
+        question_html,
+        "</ol>"
+      )
+      list(html = question_html, correct_answer = correct_answer_text)
+    },
+    question$question_type == "Fill in the Blanks" ~ {
+      # Extract the correct answers
+      correct_answers <- question$correct_answers
+
+      # Add the correct answers to the HTML
+      correct_answer_text <- paste(correct_answers, collapse = ", ")
+      
+      list(html = question_html, correct_answer = correct_answer_text)
+    },
+    question$question_type == "Matching" ~ {
+      # Extract the matching pairs
+      matching_pairs <- question$matching_pairs
+
+      # Add the matching pairs to the HTML
+      question_html <- paste0(
+        question_html, "<ol>"
+      )
+      for (pair in matching_pairs) {
+        question_html <- paste0(
+          question_html,
+          "<li>", pair$prompt, "</li><ul>"
+        )
+        for (choice in pair$choices) {
+          question_html <- paste0(
+            question_html,
+            "<li>", choice, "</li>"
+          )
+        }
+        question_html <- paste0(
+          question_html,
+          "</ul>"
+        )
+      }
+      question_html <- paste0(
+        question_html,
+        "</ol>"
+      )
+      list(html = question_html, correct_answer = "Matching question")
+    },
+    question$question_type == "Ordering" ~ {
+      # Extract the correct order
+      correct_order <- question$correct_order
+
+      # Add the correct order to the HTML
+      correct_answer_text <- paste(correct_order, collapse = ", ")
+      
+      list(html = question_html, correct_answer = correct_answer_text)
+    },
+    question$question_type == "Short Answer" ~ {
+      # Extract the correct answers
+      correct_answers <- question$correct_answers
+
+      # Add the correct answers to the HTML
+      correct_answer_text <- paste(correct_answers, collapse = ", ")
+      
+      list(html = question_html, correct_answer = correct_answer_text)
+    },
+    question$question_type == "Arithmetic" ~ {
+      # Extract the formula and variables
+      formula <- question$formula
+      variables <- question$variables
+
+      # Add the formula and variables to the HTML
+      question_html <- paste0(
+        question_html, "<p>Formula: ", formula, "</p>"
+      )
+      for (var in variables) {
+        question_html <- paste0(
+          question_html,
+          "<p>Variable: ", var$name, " (", var$minvalue, " to ", var$maxvalue, ")</p>"
+        )
+      }
+      list(html = question_html, correct_answer = " ")
+    },
+    question$question_type == "Significant Figures" ~ {
+      # Extract the formula and precision
+      formula <- question$formula
+      precision <- question$precision
+
+      # Add the formula and precision to the HTML
+      question_html <- paste0(
+        question_html, "<p>Formula: ", formula, "</p>"
+      )
+      question_html <- paste0(
+        question_html,
+        "<p>Precision: ", precision, "</p>"
+      )
+      list(html = question_html, correct_answer = " ")
+    },
+    question$question_type == "Multi-Short Answer" ~ {
+      # Extract the correct answers
+      correct_answers <- question$correct_answers
+
+      # Add the correct answers to the HTML
+      correct_answer_text <- paste(correct_answers, collapse = ", ")
+      
+      list(html = question_html, correct_answer = correct_answer_text)
+    },
+    question$question_type == "Long Answer" ~ {
+      # Long answer questions typically do not have a correct answer
+      correct_answer_text <- " "
+
+      question_html <- paste0(
+        question_html,
+        "<p>&nbsp;</p><p>&nbsp;</p><p>&nbsp;</p>"
+      )
+      
+      list(html = question_html, correct_answer = correct_answer_text)
+    },
+    TRUE ~ {
+      # Handle unsupported question types
+      question_html <- paste0(
+        question_html,
+        "<p>Unsupported question type</p>"
+      )
+      list(html = question_html, correct_answer = "Unsupported question type")
+    }
+  )
+
+  # Return the result
+  return(result)
+}
+
