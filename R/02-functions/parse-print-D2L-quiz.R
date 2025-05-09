@@ -27,28 +27,28 @@ parse_d2l_xml <- function(xml_file) {
     stop("No container section found. Check the XML structure.")
   }
 
-  # Extract nested sections within the container section
-  nested_sections <- xml_find_all(container_section, ".//section", ns)
+  # Extract all direct children of the container section (both <item> and <section>)
+  container_children <- xml_find_all(container_section, "./*", ns)
 
-  # Parse nested sections
-  sections <- lapply(nested_sections, function(section) {
-    parse_section(section, ns)
-  })
+  # Initialize a list to store sections and uncategorized questions in order
+  sections <- list()
 
-  # Handle questions directly within the container section
-  uncategorized_items <- xml_find_all(container_section, ".//item[not(ancestor::section)]", ns)
-  if (length(uncategorized_items) > 0) {
-    uncategorized_questions <- lapply(uncategorized_items, function(item) {
-      parse_question(item, ns)
-    })
-
-    # Add uncategorized questions as a new section
-    sections <- append(sections, list(list(
-      section_id = "UNCATEGORIZED",
-      section_title = "Uncategorized",
-      num_items = length(uncategorized_questions),
-      questions = uncategorized_questions
-    )))
+  # Process each child in the order it appears
+  for (child in container_children) {
+    if (xml_name(child) == "item") {
+      # If the child is an <item>, treat it as an uncategorized question
+      question <- parse_question(child, ns)
+      sections <- append(sections, list(list(
+        section_id = "UNCATEGORIZED",
+        section_title = "Uncategorized",
+        num_items = 1,
+        questions = list(question)
+      )))
+    } else if (xml_name(child) == "section") {
+      # If the child is a <section>, parse it as a section
+      section <- parse_section(child, ns)
+      sections <- append(sections, list(section))
+    }
   }
 
   # Return the parsed data, including the quiz title
