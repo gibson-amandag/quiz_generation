@@ -1,4 +1,3 @@
-# Function to parse the XML file and extract sections, questions, and the quiz title
 parse_d2l_xml <- function(xml_file) {
   # Check if the file exists and has contents
   if (!file.exists(xml_file)) {
@@ -30,63 +29,27 @@ parse_d2l_xml <- function(xml_file) {
 
   # Extract nested sections within the container section
   nested_sections <- xml_find_all(container_section, ".//section", ns)
-  if (length(nested_sections) == 0) {
-    stop("No nested sections found within the container section.")
-  }
 
-  # Parse each nested section
+  # Parse nested sections
   sections <- lapply(nested_sections, function(section) {
-    section_id <- xml_attr(section, "ident")
-    section_title <- xml_attr(section, "title")
-    num_items <- as.integer(xml_text(xml_find_first(section, ".//fieldentry[../fieldlabel='qmd_numberofitems']", ns)))
+    parse_section(section, ns)
+  })
 
-    # Extract questions within the section
-    items <- xml_find_all(section, ".//item", ns)
-    questions <- lapply(items, function(item) {
-      question_id <- xml_attr(item, "ident")
-      question_text <- xml_text(xml_find_first(item, ".//mattext", ns))
-
-      # Extract answer options
-      answers <- xml_find_all(item, ".//response_label", ns)
-      answer_texts <- sapply(answers, function(answer) {
-        xml_text(xml_find_first(answer, ".//mattext", ns))
-      })
-      answer_idents <- sapply(answers, function(answer) {
-        xml_attr(answer, "ident")
-      })
-
-      # Determine correct answers
-      respconditions <- xml_find_all(item, ".//respcondition", ns)
-      correct_answers <- sapply(respconditions, function(respcondition) {
-        varequal <- xml_text(xml_find_first(respcondition, ".//varequal", ns))
-        setvar <- xml_text(xml_find_first(respcondition, ".//setvar", ns))
-        if (setvar == "100.000000000") {
-          return(varequal)
-        } else {
-          return(NULL)
-        }
-      })
-      correct_answers <- correct_answers[!is.na(correct_answers)] # Remove NULL values
-
-      # Match correct answer idents to their text
-      correct_answer_texts <- answer_texts[answer_idents %in% correct_answers]
-
-      list(
-        question_id = question_id,
-        question_text = question_text,
-        answers = answer_texts,
-        correct_answers = correct_answer_texts
-      )
+  # Handle questions directly within the container section
+  uncategorized_items <- xml_find_all(container_section, ".//item[not(ancestor::section)]", ns)
+  if (length(uncategorized_items) > 0) {
+    uncategorized_questions <- lapply(uncategorized_items, function(item) {
+      parse_question(item, ns)
     })
 
-    # Return section data
-    list(
-      section_id = section_id,
-      section_title = section_title,
-      num_items = num_items,
-      questions = questions
-    )
-  })
+    # Add uncategorized questions as a new section
+    sections <- append(sections, list(list(
+      section_id = "UNCATEGORIZED",
+      section_title = "Uncategorized",
+      num_items = length(uncategorized_questions),
+      questions = uncategorized_questions
+    )))
+  }
 
   # Return the parsed data, including the quiz title
   list(
@@ -95,10 +58,129 @@ parse_d2l_xml <- function(xml_file) {
   )
 }
 
+parse_section <- function(section, ns) {
+  section_id <- xml_attr(section, "ident")
+  section_title <- xml_attr(section, "title")
+  num_items <- as.integer(xml_text(xml_find_first(section, ".//fieldentry[../fieldlabel='qmd_numberofitems']", ns)))
+
+  if (is.na(num_items) || is.null(num_items)) {
+    # Default to number of questions in the section
+    num_items <- length(xml_find_all(section, ".//item", ns))
+  }
+
+  # Extract questions within the section
+  items <- xml_find_all(section, ".//item", ns)
+  questions <- lapply(items, function(item) {
+    parse_question(item, ns)
+  })
+
+  # Return section data
+  list(
+    section_id = section_id,
+    section_title = section_title,
+    num_items = num_items,
+    questions = questions
+  )
+}
+
+parse_question <- function(item, ns) {
+  question_id <- xml_attr(item, "ident")
+  question_text <- xml_text(xml_find_first(item, ".//mattext", ns))
+
+  # Extract the question type
+  question_type <- xml_text(xml_find_first(item, ".//qti_metadatafield[fieldlabel='qmd_questiontype']/fieldentry"))
+
+  # Call the appropriate parsing function based on the question type
+  if (question_type == "Multiple Choice") {
+    parse_multiple_choice_question(item, ns)
+  } else if (question_type == "Matching") {
+    parse_matching_question(item, ns)
+  } else if (question_type == "Long Answer") {
+    parse_long_answer_question(item, ns)
+  } else {
+    warning(paste("Unsupported question type:", question_type))
+    NULL
+  }
+}
+
+parse_multiple_choice_question <- function(item, ns) {
+  question_id <- xml_attr(item, "ident")
+  question_text <- xml_text(xml_find_first(item, ".//mattext", ns))
+
+  # Extract answer options
+  answers <- xml_find_all(item, ".//response_label", ns)
+  answer_texts <- sapply(answers, function(answer) {
+    xml_text(xml_find_first(answer, ".//mattext", ns))
+  })
+  answer_idents <- sapply(answers, function(answer) {
+    xml_attr(answer, "ident")
+  })
+
+  # Determine correct answers
+  respconditions <- xml_find_all(item, ".//respcondition", ns)
+  correct_answers <- sapply(respconditions, function(respcondition) {
+    varequal <- xml_text(xml_find_first(respcondition, ".//varequal", ns))
+    setvar <- xml_text(xml_find_first(respcondition, ".//setvar", ns))
+    if (setvar == "100.000000000") {
+      return(varequal)
+    } else {
+      return(NULL)
+    }
+  })
+  correct_answers <- correct_answers[!is.na(correct_answers)] # Remove NULL values
+
+  # Match correct answer idents to their text
+  correct_answer_texts <- answer_texts[answer_idents %in% correct_answers]
+
+  list(
+    question_id = question_id,
+    question_text = question_text,
+    question_type = "Multiple Choice",
+    answers = answer_texts,
+    correct_answers = correct_answer_texts
+  )
+}
+
+parse_matching_question <- function(item, ns) {
+  question_id <- xml_attr(item, "ident")
+  question_text <- xml_text(xml_find_first(item, ".//mattext", ns))
+
+  # Extract matching pairs
+  response_groups <- xml_find_all(item, ".//response_grp", ns)
+  matching_pairs <- lapply(response_groups, function(group) {
+    prompt <- xml_text(xml_find_first(group, ".//mattext", ns))
+    choices <- xml_find_all(group, ".//response_label", ns)
+    choice_texts <- sapply(choices, function(choice) {
+      xml_text(xml_find_first(choice, ".//mattext", ns))
+    })
+    list(prompt = prompt, choices = choice_texts)
+  })
+
+  list(
+    question_id = question_id,
+    question_text = question_text,
+    question_type = "Matching",
+    matching_pairs = matching_pairs
+  )
+}
+
+parse_long_answer_question <- function(item, ns) {
+  question_id <- xml_attr(item, "ident")
+  question_text <- xml_text(xml_find_first(item, ".//mattext", ns))
+
+  list(
+    question_id = question_id,
+    question_text = question_text,
+    question_type = "Long Answer"
+  )
+}
+
 
 # Function to randomly select questions from each section
 select_questions <- function(sections, seed = 123) {
   set.seed(seed)
+  # print(sections)
+
   selected_questions <- lapply(sections, function(section) {
     # Extract the number of questions to select
     num_items <- section$num_items
@@ -373,27 +455,29 @@ generate_questions_html <- function(sections, dispFormat = "list", showAnswers =
         questions_html <- sub("(.*)<td>&nbsp;</td>(.*)$", paste0("\\1<td class='correct-letter'>", correct_letter, "</td>\\2"), questions_html)
       }
 
-      if (showSectionTitles) {
-        # Add the section number to the answer key
-        answer_key_df <- rbind(
-          answer_key_df,
-          data.frame(
-            questionNum = question_number,
-            correctAnswer = correct_letter,
-            section = sectionNum,
-            stringsAsFactors = FALSE
-          )
+      if (!is.null(correct_letter) && length(correct_letter) > 0) {
+        if (showSectionTitles) {
+          # Add the section number to the answer key
+          answer_key_df <- rbind(
+        answer_key_df,
+        data.frame(
+          questionNum = question_number,
+          correctAnswer = correct_letter,
+          section = sectionNum,
+          stringsAsFactors = FALSE
         )
-      } else {
-        # Add the question number to the answer key
-        answer_key_df <- rbind(
-          answer_key_df,
-          data.frame(
-            questionNum = question_number,
-            correctAnswer = correct_letter,
-            stringsAsFactors = FALSE
           )
+        } else {
+          # Add the question number to the answer key
+          answer_key_df <- rbind(
+        answer_key_df,
+        data.frame(
+          questionNum = question_number,
+          correctAnswer = correct_letter,
+          stringsAsFactors = FALSE
         )
+          )
+        }
       }
       
       for (answer in answer_options) {
