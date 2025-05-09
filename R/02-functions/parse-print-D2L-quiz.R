@@ -18,6 +18,9 @@ parse_d2l_xml <- function(xml_file) {
     quiz_title <- "Quiz" # Default title if none is found
   }
 
+  # Debugging: Print the quiz title
+  print(paste("Quiz Title:", quiz_title))
+
   # Define the namespace
   ns <- xml_ns(xml)
 
@@ -27,16 +30,17 @@ parse_d2l_xml <- function(xml_file) {
     stop("No container section found. Check the XML structure.")
   }
 
-  # Extract nested sections within the container section
-  nested_sections <- xml_find_all(container_section, ".//section", ns)
+  # Debugging: Print the container section
+  print("Container Section Found:")
+  print(as.character(container_section))
 
-  # Parse nested sections
-  sections <- lapply(nested_sections, function(section) {
-    parse_section(section, ns)
-  })
+  # Recursively parse all sections
+  sections <- parse_all_sections(container_section, ns)
 
   # Handle questions directly within the container section
   uncategorized_items <- xml_find_all(container_section, ".//item[not(ancestor::section)]", ns)
+  print(paste("Number of uncategorized questions found:", length(uncategorized_items)))
+
   if (length(uncategorized_items) > 0) {
     uncategorized_questions <- lapply(uncategorized_items, function(item) {
       parse_question(item, ns)
@@ -56,6 +60,39 @@ parse_d2l_xml <- function(xml_file) {
     title = quiz_title,
     sections = sections
   )
+}
+
+parse_all_sections <- function(section, ns) {
+  # Parse the current section
+  section_id <- xml_attr(section, "ident")
+  section_title <- xml_attr(section, "title")
+  print(paste("Parsing Section:", section_id, "-", section_title))
+
+  # Extract questions directly within the current section
+  items <- xml_find_all(section, ".//item", ns)
+  print(paste("Number of questions found in section:", length(items)))
+
+  questions <- lapply(items, function(item) {
+    parse_question(item, ns)
+  })
+
+  # Parse nested sections
+  nested_sections <- xml_find_all(section, "./section", ns)
+  print(paste("Number of nested sections found:", length(nested_sections)))
+
+  nested_sections_data <- lapply(nested_sections, function(nested_section) {
+    parse_all_sections(nested_section, ns)
+  })
+
+  # Combine the current section and nested sections
+  current_section <- list(
+    section_id = section_id,
+    section_title = section_title,
+    num_items = length(questions),
+    questions = questions
+  )
+
+  return(c(list(current_section), unlist(nested_sections_data, recursive = FALSE)))
 }
 
 parse_section <- function(section, ns) {
@@ -87,8 +124,17 @@ parse_question <- function(item, ns) {
   question_id <- xml_attr(item, "ident")
   question_text <- xml_text(xml_find_first(item, ".//mattext", ns))
 
+  # Debugging: Print the question ID and text
+  print(paste("Parsing Question ID:", question_id))
+  print(paste("Question Text:", question_text))
+
   # Extract the question type
   question_type <- xml_text(xml_find_first(item, ".//qti_metadatafield[fieldlabel='qmd_questiontype']/fieldentry"))
+  print(paste("Question Type:", question_type))
+
+  # Debugging: Print the raw XML for the question
+  print("Raw Question XML:")
+  print(as.character(item))
 
   # Call the appropriate parsing function based on the question type
   if (question_type == "Multiple Choice") {
