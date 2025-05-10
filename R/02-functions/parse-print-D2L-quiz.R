@@ -186,16 +186,43 @@ parse_matching_question <- function(item, ns) {
     list(choice = choice_text, choice_id = choice_ident)
   }))
 
-  print(
-    list(
-    question_id = question_id,
-    question_text = question_text,
-    question_type = "Matching",
-    prompts = prompts,
-    choices = choices
-  )
-  )
+  # Extract correct answers from <respcondition> where varname="D2L_Correct"
+  respconditions <- xml_find_all(item, ".//respcondition", ns)
+  correct_answers <- lapply(respconditions, function(respcondition) {
+    setvar <- xml_attr(xml_find_first(respcondition, ".//setvar", ns), "varname")
+    if (!is.null(setvar) && setvar == "D2L_Correct") {
+      varequal <- xml_text(xml_find_first(respcondition, ".//varequal", ns))
+      respident <- xml_attr(xml_find_first(respcondition, ".//varequal", ns), "respident")
+      list(choice_id = varequal, prompt_id = respident)
+    } else {
+      NULL
+    }
+  })
+  correct_answers <- Filter(Negate(is.null), correct_answers) # Remove NULL values
 
+  # Associate correct answers with prompts
+  choices <- lapply(choices, function(choice) {
+    # Find the correct answer that matches this choice
+    matching_answer <- Filter(function(answer) answer$choice_id == choice$choice_id, correct_answers)
+    if (length(matching_answer) > 0) {
+      # Find the corresponding prompt for the correct answer
+      correct_prompt <- Filter(function(prompt) prompt$prompt_id == matching_answer[[1]]$prompt_id, prompts)
+      if (length(correct_prompt) > 0) {
+        choice$correct_prompt <- correct_prompt[[1]]$prompt
+        choice$correct_prompt_id <- correct_prompt[[1]]$prompt_id
+      } else {
+        choice$correct_prompt <- NULL
+        choice$correct_prompt_id <- NULL
+      }
+    } else {
+      choice$correct_prompt <- NULL
+      choice$correct_prompt_id <- NULL
+    }
+
+    choice
+  })
+
+  # Return the parsed data
   list(
     question_id = question_id,
     question_text = question_text,
@@ -391,7 +418,7 @@ parse_multi_short_answer_question <- function(item, ns) {
 
 
 # Function to randomly select questions from each section
-select_questions <- function(sections, seed = 123) {
+select_questions <- function(sections, seed = 123, shuffleWithinSection = FALSE) {
   set.seed(seed)
   # print(sections)
 
@@ -403,12 +430,14 @@ select_questions <- function(sections, seed = 123) {
     questions <- section$questions
 
     # Randomly sample the required number of questions
-    if (length(questions) >= num_items) {
+    if (length(questions) > num_items || (shuffleWithinSection && length(questions) == num_items)) {
       sampled_questions <- sample(questions, num_items)
+    } else if (length(questions) == num_items) {
+      sampled_questions <- questions # Keep the original order if the count matches
     } else {
       warning(paste(
-        "Not enough questions in section:", section$section_id,
-        "Requested:", num_items, "Available:", length(questions)
+      "Not enough questions in section:", section$section_id,
+      "Requested:", num_items, "Available:", length(questions)
       ))
       sampled_questions <- questions # Return all questions if not enough available
     }
@@ -718,7 +747,7 @@ render_question_html <- function(question, question_number, dispFormat, showAnsw
 
   if(dispFormat == "list"){
     question_html <- paste0(
-      "<li>", question_html, "</li>"
+      "<li class='question-list'>", question_html, "</li>"
     )
   } else if(dispFormat == "div"){
     question_html <- paste0(
@@ -731,7 +760,7 @@ render_question_html <- function(question, question_number, dispFormat, showAnsw
   } else if(dispFormat == "table"){
     question_html <- paste0(
       "<tr>",
-      if(showAnswers) paste0("<td class='correct-letter'>", questionInfo$correct_answer,"</td>") else "<td>&nbsp;</td>",
+      if(showAnswers && !(question$question_type %in% c("Matching", "Ordering"))) paste0("<td class='correct-letter'>", questionInfo$correct_answer,"</td>") else "<td>&nbsp;</td>",
       "<td>",
       "<strong>", question_number, ".</strong> ", question_html,
       "</td></tr>"
@@ -748,8 +777,11 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
   )
 
   # Determine the question type and render accordingly
-  result <- case_when(
-    question$question_type %in% c("Multiple Choice", "True/False", "Multi-Select") ~ {
+  result <- switch(
+    question$question_type,
+    "Multiple Choice" = ,
+    "True/False" = ,
+    "Multi-Select" = {
       # Shuffle answers if the option is enabled
       answer_options <- if (shuffleAnswers) sample(question$answers) else question$answers
 
@@ -774,6 +806,10 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
         is_correct <- answer %in% question$correct_answers
         answer_class <- if (showAnswers && is_correct) "class='correct-answer'" else ""
 
+        # Remove <p> and </p> tags from the answer
+        answer <- sub("<p>", "", answer) # Remove the first <p>
+        answer <- sub("</p>", "", answer) # Remove the first </p>
+
         question_html <- paste0(
           question_html,
           "<li ", answer_class, ">", answer, "</li>"
@@ -785,7 +821,7 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
       )
       list(html = question_html, correct_answer = correct_answer_text)
     },
-    question$question_type == "Fill in the Blanks" ~ {
+    "Fill in the Blanks" = {
       # Extract the correct answers
       correct_answers <- question$correct_answers
 
@@ -794,37 +830,86 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
       
       list(html = question_html, correct_answer = correct_answer_text)
     },
-    question$question_type == "Matching" ~ {
-      # Extract the matching pairs
-      matching_pairs <- question$matching_pairs
+    "Matching" = {
+      # Extract the choices and prompts
+      choices <- question$choices
+      prompts <- question$prompts
 
-      # Add the matching pairs to the HTML
+      # Remove <p> and </p> tags from choices and prompts
+      choices <- lapply(choices, function(choice) {
+        choice$choice <- sub("<p>", "", choice$choice)
+        choice$choice <- sub("</p>", "", choice$choice)
+        choice
+      })
+      prompts <- lapply(prompts, function(prompt) {
+        prompt$prompt <- sub("<p>", "", prompt$prompt)
+        prompt$prompt <- sub("</p>", "", prompt$prompt)
+        prompt
+      })
+
+      # Shuffle choices and prompts if shuffleAnswers is enabled
+      if (shuffleAnswers) {
+        choices <- sample(choices)
+        prompts <- sample(prompts)
+      }
+
+      # Generate the HTML for the matching question
       question_html <- paste0(
-        question_html, "<ol>"
+        question_html,
+        "<div style='display: flex; width: 100%;'>",
+        "<div style='width: 50%; padding-right: 10px;'>"
       )
-      for (pair in matching_pairs) {
-        question_html <- paste0(
-          question_html,
-          "<li>", pair$prompt, "</li><ul>"
-        )
-        for (choice in pair$choices) {
-          question_html <- paste0(
-            question_html,
-            "<li>", choice, "</li>"
-          )
+
+      # Add choices to the left column
+      for (choice in choices) {
+        correctAnswer <- LETTERS[which(sapply(prompts, function(prompt) prompt$prompt_id) == choice$correct_prompt_id)]
+        if(showAnswers && !is.null(choice$correct_prompt)) {
+          entryLine <- paste0("<u class='correct-letter'>", correctAnswer, "</u>")
+        } else {
+          entryLine <- "_____"
         }
         question_html <- paste0(
           question_html,
-          "</ul>"
+          "<div>", entryLine, " ", choice$choice,
+          "</div>"
         )
       }
+
       question_html <- paste0(
         question_html,
-        "</ol>"
+         "</div>",
+        "<div style='width: 50%; padding-left: 10px;'>"
       )
-      list(html = question_html, correct_answer = "Matching question")
+
+      # Add prompts to the right column, lettered A, B, C, etc.
+      letters <- LETTERS[1:length(prompts)]
+      for (i in seq_along(prompts)) {
+        question_html <- paste0(
+          question_html,
+          "<div>", letters[i], ". ", prompts[[i]]$prompt, "</div>"
+        )
+      }
+
+      question_html <- paste0(
+        question_html,
+        "</div>",
+        "</div>"
+      )
+
+      # Generate the correct answer key (letters in the correct order)
+      correct_order <- sapply(choices, function(choice) {
+        matching_prompt <- Filter(function(prompt) prompt$prompt_id == choice$correct_prompt_id, prompts)
+        if (length(matching_prompt) > 0) {
+          letters[which(sapply(prompts, function(prompt) prompt$prompt_id) == matching_prompt[[1]]$prompt_id)]
+        } else {
+          NULL
+        }
+      })
+      correct_answer_text <- paste(correct_order, collapse = ", ")
+
+      list(html = question_html, correct_answer = correct_answer_text)
     },
-    question$question_type == "Ordering" ~ {
+    "Ordering" = {
       # Shuffle answers if the option is enabled
       answer_options <- if (shuffleAnswers) sample(question$answers) else question$answers
 
@@ -838,11 +923,20 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
         "<div style='margin-left: 20px;'>"
       )
       for (answer in answer_options) {
+        # get the correct order index
+        correct_order_index <- which(question$correct_order == answer)
         answer <- sub("<p>", "", answer) # Remove the first <p>
         answer <- sub("</p>", "", answer) # Remove the first </p>
+
+        if(showAnswers && !is.na(correct_order_index)) {
+          entryLine <- paste0("<u class='correct-letter'>", correct_order_index, "</u>")
+        } else {
+          entryLine <- "_____"
+        }
+
         question_html <- paste0(
           question_html,
-          "<div>_______ ", answer, "</div>"
+          "<div>", entryLine, " ", answer, "</div>"
         )
       }
       question_html <- paste0(
@@ -852,7 +946,7 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
 
       list(html = question_html, correct_answer = correct_answer_text)
     },
-    question$question_type == "Short Answer" ~ {
+    "Short Answer" = {
       # Extract the correct answers
       correct_answers <- question$correct_answers
 
@@ -861,7 +955,7 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
       
       list(html = question_html, correct_answer = correct_answer_text)
     },
-    question$question_type == "Arithmetic" ~ {
+    "Arithmetic" = {
       # Extract the formula and variables
       formula <- question$formula
       variables <- question$variables
@@ -878,7 +972,7 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
       }
       list(html = question_html, correct_answer = " ")
     },
-    question$question_type == "Significant Figures" ~ {
+    "Significant Figures" = {
       # Extract the formula and precision
       formula <- question$formula
       precision <- question$precision
@@ -893,7 +987,7 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
       )
       list(html = question_html, correct_answer = " ")
     },
-    question$question_type == "Multi-Short Answer" ~ {
+    "Multi-Short Answer" = {
       # Extract the correct answers
       correct_answers <- question$correct_answers
 
@@ -902,7 +996,7 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
       
       list(html = question_html, correct_answer = correct_answer_text)
     },
-    question$question_type == "Long Answer" ~ {
+    "Long Answer" = {
       # Long answer questions typically do not have a correct answer
       correct_answer_text <- " "
 
@@ -913,7 +1007,7 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
       
       list(html = question_html, correct_answer = correct_answer_text)
     },
-    TRUE ~ {
+    {
       # Handle unsupported question types
       question_html <- paste0(
         question_html,
@@ -926,4 +1020,3 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
   # Return the result
   return(result)
 }
-
