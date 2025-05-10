@@ -183,6 +183,10 @@ ui <- fluidPage(
                   downloadButton(
                     "download_quiz"
                     , "Download Quiz as HTML"
+                  ),
+                  downloadButton(
+                    "download_answer_key"
+                    , "Download Answer Key as CSV"
                   )
                 )
               ),
@@ -388,6 +392,39 @@ server <- function(input, output, session) {
       
       # Write the styled HTML content to the file
       writeLines(styled_html, file)
+    }
+  )
+
+  # Download handler for saving the answer key as CSV
+  output$download_answer_key <- downloadHandler(
+    filename = function() {
+      # Get the quiz title, version, and letter
+      quiz_title <- input$file_title
+      
+      # Construct the filename
+      paste0(quiz_title, "_answerKeys.csv")
+    },
+    content = function(file) {
+      # get all answer keys
+      answer_keys <- quiz_versions_answers()
+
+      # new row for each version and letter, add column for version and letter
+      answer_key <- do.call(rbind, lapply(names(answer_keys), function(key) {
+        version_letter <- strsplit(key, "_L")[[1]]
+        version <- version_letter[1]
+        # remove the "V" from the version
+        version <- gsub("V", "", version)
+        letter <- version_letter[2]
+        data <- answer_keys[[key]]
+        data$version <- version
+        data$letter <- letter
+        return(data)
+      }))
+      
+      req(answer_key)  # Ensure the answer key exists
+      
+      # Write the answer key to a CSV file
+      write.csv(answer_key, file, row.names = FALSE)
     }
   )
 
