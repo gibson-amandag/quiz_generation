@@ -283,16 +283,20 @@ parse_ordering_question <- function(item, ns) {
   })
 
   # Extract correct order
-  correct_order <- sapply(answers, function(answer) {
+  correct_order <- xml_find_all(item, ".//response_label", ns)
+  correct_order_idents <- sapply(correct_order, function(answer) {
     xml_attr(answer, "ident")
   })
+
+  # Match the correct order to the answer texts
+  correct_order_texts <- answer_texts[match(correct_order_idents, xml_attr(answers, "ident"))]
 
   list(
     question_id = question_id,
     question_text = question_text,
     question_type = "Ordering",
     answers = answer_texts,
-    correct_order = correct_order
+    correct_order = correct_order_texts
   )
 }
 
@@ -805,12 +809,31 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
       list(html = question_html, correct_answer = "Matching question")
     },
     question$question_type == "Ordering" ~ {
-      # Extract the correct order
-      correct_order <- question$correct_order
+      # Shuffle answers if the option is enabled
+      answer_options <- if (shuffleAnswers) sample(question$answers) else question$answers
 
-      # Add the correct order to the HTML
-      correct_answer_text <- paste(correct_order, collapse = ", ")
-      
+      # Find the numerical order of the shuffled answer options that matches the correct order
+      correct_order_indices <- match(question$correct_order, answer_options)
+      correct_answer_text <- paste(correct_order_indices, collapse = ",")
+
+      # Add the answer options below the question text
+      question_html <- paste0(
+        question_html,
+        "<div style='margin-left: 20px;'>"
+      )
+      for (answer in answer_options) {
+        answer <- sub("<p>", "", answer) # Remove the first <p>
+        answer <- sub("</p>", "", answer) # Remove the first </p>
+        question_html <- paste0(
+          question_html,
+          "<div>_______ ", answer, "</div>"
+        )
+      }
+      question_html <- paste0(
+        question_html,
+        "</div>"
+      )
+
       list(html = question_html, correct_answer = correct_answer_text)
     },
     question$question_type == "Short Answer" ~ {
