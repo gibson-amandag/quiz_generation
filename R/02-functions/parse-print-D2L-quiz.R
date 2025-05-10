@@ -170,22 +170,38 @@ parse_matching_question <- function(item, ns) {
   question_id <- xml_attr(item, "ident")
   question_text <- xml_text(xml_find_first(item, ".//mattext", ns))
 
-  # Extract matching pairs
+  # Extract prompts (right column)
   response_groups <- xml_find_all(item, ".//response_grp", ns)
-  matching_pairs <- lapply(response_groups, function(group) {
-    prompt <- xml_text(xml_find_first(group, ".//mattext", ns))
-    choices <- xml_find_all(group, ".//response_label", ns)
-    choice_texts <- sapply(choices, function(choice) {
-      xml_text(xml_find_first(choice, ".//mattext", ns))
-    })
-    list(prompt = prompt, choices = choice_texts)
+  prompts <- lapply(response_groups, function(group) {
+    prompt_text <- xml_text(xml_find_first(group, ".//mattext", ns))
+    prompt_ident <- xml_attr(group, "respident")
+    list(prompt = prompt_text, prompt_id = prompt_ident)
   })
+
+  # Extract unique choices (left column)
+  response_labels <- xml_find_all(item, ".//response_label", ns)
+  choices <- unique(lapply(response_labels, function(label) {
+    choice_text <- xml_text(xml_find_first(label, ".//mattext", ns))
+    choice_ident <- xml_attr(label, "ident")
+    list(choice = choice_text, choice_id = choice_ident)
+  }))
+
+  print(
+    list(
+    question_id = question_id,
+    question_text = question_text,
+    question_type = "Matching",
+    prompts = prompts,
+    choices = choices
+  )
+  )
 
   list(
     question_id = question_id,
     question_text = question_text,
     question_type = "Matching",
-    matching_pairs = matching_pairs
+    prompts = prompts,
+    choices = choices
   )
 }
 
