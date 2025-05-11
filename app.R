@@ -18,7 +18,7 @@ ui <- fluidPage(
   fluidRow(
     column(
       12,
-      titlePanel("Quiz Interaction App"),
+      titlePanel("D2L Quiz Reading"),
       fluidRow(
         column(
           4,
@@ -30,11 +30,18 @@ ui <- fluidPage(
               pattern = "\\.xml$",
               full.names = TRUE
             )
-          )
+          ),
+          # Add help text to inform the user
+          helpText("You can either select a quiz XML file from the list above (files in the 'quizXMLs' folder) or upload your own XML file below."),
+          # Add an upload button option
+          fileInput("quiz_file_upload", "Upload Quiz XML File:", accept = c(".xml")),
+        ),
+        column(
+          4,
           # Quiz Title
-          , textInput("quiz_title", "Quiz Title:", value = "")
+          textInput("quiz_title", "Quiz Title:", value = ""),
           # File Title
-          , textInput("file_title", "File Title:", value = "Quiz")
+          textInput("file_title", "File Title:", value = "Quiz")
         ),
         column(
           4,
@@ -110,13 +117,13 @@ ui <- fluidPage(
                   numericInput(
                     "num_versions"
                     , "Number of Versions:"
-                    , value = 1
+                    , value = 3
                     , min = 1
                   ),
                   numericInput(
                     "num_letter_versions"
                     , "Number of Letter Versions:"
-                    , value = 1
+                    , value = 2
                     , min = 1
                   ),
                   # shuffle if all questions used
@@ -251,6 +258,35 @@ server <- function(input, output, session) {
     )
     sections <- setNames(sections, sections) # Ensure all elements are named
 
+    # Update the section filter dropdown
+    updateSelectInput(session, "section_filter", choices = sections)
+  })
+
+  # Observe event for uploaded quiz file
+  observeEvent(input$quiz_file_upload, {
+    req(input$quiz_file_upload)
+    
+    # Parse the uploaded XML file
+    file_path <- input$quiz_file_upload$datapath
+    parsed_data <- parse_d2l_xml(file_path)
+    quiz_data(parsed_data)
+    
+    # Extract the quiz title
+    quiz_title <- quiz_data()$title
+    
+    # Update the quiz title input
+    updateTextInput(session, "quiz_title", value = quiz_title)
+    
+    # Extract section titles
+    sections <- c(
+      "All",
+      sapply(
+        quiz_data()$sections,
+        function(section) section$section_title
+      )
+    )
+    sections <- setNames(sections, sections) # Ensure all elements are named
+    
     # Update the section filter dropdown
     updateSelectInput(session, "section_filter", choices = sections)
   })
@@ -420,7 +456,7 @@ server <- function(input, output, session) {
         data$letter <- letter
         return(data)
       }))
-      
+
       req(answer_key)  # Ensure the answer key exists
       
       # Write the answer key to a CSV file
