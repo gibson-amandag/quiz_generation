@@ -574,7 +574,9 @@ server <- function(input, output, session) {
           shuffleLetter = LETTERS[letterNum],
           quizTitle = title,
           versionNum = version,
-          totalQs = numQuestions
+          totalQs = numQuestions,
+          seed = as.integer(paste0(input$seed, version, letterNum)),
+          shuffleAnswers = TRUE
         )
   
         # Store the HTML in the list
