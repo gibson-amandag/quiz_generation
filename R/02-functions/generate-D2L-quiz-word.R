@@ -53,7 +53,7 @@ generate_quiz_wordDoc <- function(selected_questions, shuffleLetter, quizTitle, 
   clean_html_tags <- function(text) {
     text <- str_replace_all(text, "<p>", "\n")
     text <- str_replace_all(text, "</p>", "")
-    text <- str_replace_all(text, "<em>(.*?)</em>", "_\\1_") # Italics
+    text <- str_replace_all(text, "<em>(.*?)</em>", "{italics}\\1{italics}") # Italics
     text <- str_replace_all(text, "<strong>(.*?)</strong>", "**\\1**") # Bold
     text <- str_replace_all(text, "<.*?>", "") # Remove other HTML tags
     text <- str_replace_all(text, "&#39;", "'")
@@ -64,11 +64,32 @@ generate_quiz_wordDoc <- function(selected_questions, shuffleLetter, quizTitle, 
     for (question in section$sampled_questions) {
       # Clean question text
       question_text <- clean_html_tags(question$question_text)
+
+      # Handle special cases for question text
+      split_text <- str_split(question_text, "(\\{italics\\}|\\*\\*)", simplify = FALSE)[[1]]
+
+      print(split_text)
+
+      # ftext objects
+      ftext_list <- list()
+
+      for (i in seq_along(split_text)) {
+        text_part <- split_text[i]
+        if (grepl("\\{italics\\}", text_part)) {
+          ftext_list[[i]] <- ftext(text_part, prop = italic_text)
+        } else if (grepl("\\*\\*", text_part)) {
+          ftext_list[[i]] <- ftext(text_part, prop = bold_text)
+        } else {
+          ftext_list[[i]] <- ftext(text_part)
+        }
+      }
+
+      formatted_fpar <- do.call(fpar, ftext_list)
       
       # Add question text
-      base_doc <- body_add_par(
+      base_doc <- body_add_fpar(
         base_doc,
-        value = question_text,
+        formatted_fpar,
         style = "Level 1 list"
       )
       
