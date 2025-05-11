@@ -505,6 +505,9 @@ server <- function(input, output, session) {
     input$num_letter_versions
     input$quiz_file
     input$shuffle_questions
+    input$quiz_file_upload
+    input$seed
+    input$quiz_title
   }, {
     req(quiz_data())  # Ensure quiz data is available
   
@@ -558,13 +561,20 @@ server <- function(input, output, session) {
           , sampledQuestions = TRUE
         )
 
+        numQuestions <- sum(sapply(selected_questions, function(section) length(section$sampled_questions)))
+
+        title <- input$quiz_title
+        if(is.null(title) || title == "") {
+          title <- quiz_title <- quiz_data()$title
+        }
+
         # # Generate the word document for this version/letterNum
         word_doc <- generate_quiz_wordDoc(
           selected_questions = selected_questions,
           shuffleLetter = LETTERS[letterNum],
-          quizTitle = input$quiz_title,
+          quizTitle = title,
           versionNum = version,
-          totalQs = length(selected_questions)
+          totalQs = numQuestions
         )
   
         # Store the HTML in the list

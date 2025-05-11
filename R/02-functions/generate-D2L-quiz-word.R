@@ -59,49 +59,60 @@ generate_quiz_wordDoc <- function(selected_questions, shuffleLetter, quizTitle, 
     text <- str_replace_all(text, "&#39;", "'")
     return(text)
   }
-  
-  for (section in selected_questions) {
-    for (question in section$sampled_questions) {
-      # Clean question text
-      question_text <- clean_html_tags(question$question_text)
 
-      # Handle special cases for question text
-      split_text <- str_split(question_text, "(\\{italics\\}|\\*\\*)", simplify = FALSE)[[1]]
-
-      print(split_text)
-
-      # ftext objects
-      ftext_list <- list()
-
-      for (i in seq_along(split_text)) {
-        text_part <- split_text[i]
-        if (grepl("\\{italics\\}", text_part)) {
-          ftext_list[[i]] <- ftext(text_part, prop = italic_text)
-        } else if (grepl("\\*\\*", text_part)) {
-          ftext_list[[i]] <- ftext(text_part, prop = bold_text)
-        } else {
-          ftext_list[[i]] <- ftext(text_part)
+  # Helper function to parse and format text with fp_text
+  format_text_with_fp <- function(text) {
+    # Match all text and formatting tags
+    matches <- str_match_all(text, "(\\{italics\\}.*?\\{italics\\}|\\*\\*.*?\\*\\*|[^\\{\\}\\*]+)")[[1]][, 1]
+    
+    # Initialize a list to hold ftext objects
+    ftext_list <- list()
+    
+    # Iterate through matches and apply formatting
+    for (i in seq_along(matches)) {
+      match <- matches[i]
+      if (str_detect(match, "^\\{italics\\}.*\\{italics\\}$")) {
+        # Remove the {italics} tags and apply italic formatting
+        clean_text <- str_remove_all(match, "\\{italics\\}")
+        if (str_trim(clean_text) != "") {
+          ftext_list[[i]] <- ftext(clean_text, prop = italic_text)
+        }
+      } else if (str_detect(match, "^\\*\\*.*\\*\\*$")) {
+        # Remove the ** tags and apply bold formatting
+        clean_text <- str_remove_all(match, "\\*\\*")
+        if (str_trim(clean_text) != "") {
+          ftext_list[[i]] <- ftext(clean_text, prop = bold_text)
+        }
+      } else {
+        # Add plain text
+        if (match != "" && match != "NULL") {
+          ftext_list[[i]] <- ftext(match)
         }
       }
+    }
+    
+    # Combine all ftext objects into a single fpar
+    formatted_fpar <- do.call(fpar, ftext_list)
+    
+    return(formatted_fpar)
+  }
 
-      formatted_fpar <- do.call(fpar, ftext_list)
-      
+  for (section in selected_questions) {
+    for (question in section$sampled_questions) {
+      # Clean and format question text
+      question_text <- clean_html_tags(question$question_text)
+      question_fpar <- format_text_with_fp(question_text)
+  
       # Add question text
-      base_doc <- body_add_fpar(
-        base_doc,
-        formatted_fpar,
-        style = "Level 1 list"
-      )
-      
+      base_doc <- body_add_fpar(base_doc, question_fpar, style = "Level 1 list")
+  
       # Add answer options
       if (!is.null(question$answers)) {
         for (i in seq_along(question$answers)) {
           answer_text <- clean_html_tags(question$answers[i])
-          base_doc <- body_add_par(
-            base_doc,
-            value = answer_text,
-            style = "Level 2 list"
-          )
+          answer_fpar <- format_text_with_fp(answer_text)
+  
+          base_doc <- body_add_fpar(base_doc, answer_fpar, style = "Level 2 list")
         }
       }
     }
