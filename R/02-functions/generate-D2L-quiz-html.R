@@ -252,7 +252,7 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
     "True/False" = ,
     "Multi-Select" = {
       # Shuffle answers if the option is enabled
-      answer_options <- if (shuffleAnswers) sample(question$answers) else question$answers
+      answer_options <- if (shuffleAnswers && question$question_type != "True/False") sample(question$answers) else question$answers
 
       # Determine the correct answer letters
       correct_letter <- LETTERS[which(answer_options %in% question$correct_answers)]

@@ -142,7 +142,7 @@ format_text_with_fp <- function(text) {
 # Function to handle Multiple Choice, True/False, and Multi-Select questions
 handle_mc_tf_multi <- function(question, base_doc, shuffleAnswers, italic_text, bold_text) {
   # Shuffle answers if enabled
-  answer_options <- if (shuffleAnswers) sample(question$answers) else question$answers
+  answer_options <- if (shuffleAnswers && question$question_type != "True/False") sample(question$answers) else question$answers
   
   # Add question text
   question_text <- clean_html_tags(question$question_text)
