@@ -5,221 +5,282 @@ library(shinythemes)
 library(xml2)
 library(dplyr)
 
+library(officer)
+library(stringr)
+
 # Define UI
-ui <- fluidPage(
+ui <- navbarPage(
+  title = "Quiz Tool",
   theme = shinytheme("cerulean"),
 
-  # Include the custom CSS file
-  tags$head(
-    tags$link(rel = "stylesheet", type = "text/css", href = "styles.css?v=4")
-  ),
+  # Page 1: D2L Export
+  tabPanel(
+    "D2L export",
+    fluidPage(
+      # Include the custom CSS file
+      tags$head(
+        tags$link(rel = "stylesheet", type = "text/css", href = "styles.css?v=4")
+      ),
 
-  # Top-level input section
-  fluidRow(
-    column(
-      12,
-      titlePanel("D2L Quiz Reading"),
+      # Top-level input section
       fluidRow(
         column(
-          4,
-          # Select Quiz XML File
-          selectInput(
-            "quiz_file",
-            "Select Quiz File:",
-            choices = list.files("quizXMLs",
-              pattern = "\\.xml$",
-              full.names = TRUE
+          12,
+          titlePanel("D2L Quiz Reading"),
+          fluidRow(
+            column(
+              4,
+              # Select Quiz XML File
+              selectInput(
+                "quiz_file",
+                "Select Quiz File:",
+                choices = list.files("quizXMLs",
+                  pattern = "\\.xml$",
+                  full.names = TRUE
+                )
+              ),
+              # Add help text to inform the user
+              helpText("You can either select a quiz XML file from the list above (files in the 'quizXMLs' folder) or upload your own XML file below."),
+              # Add an upload button option
+              fileInput("quiz_file_upload", "Upload Quiz XML File:", accept = c(".xml"))
+            ),
+            column(
+              4,
+              # Quiz Title
+              textInput("quiz_title", "Quiz Title:", value = ""),
+              # File Title
+              textInput("file_title", "File Title:", value = "Quiz")
+            ),
+            column(
+              4,
+              # Global Settings
+              numericInput("seed", "Set Seed:", value = 123, min = 1)
             )
-          ),
-          # Add help text to inform the user
-          helpText("You can either select a quiz XML file from the list above (files in the 'quizXMLs' folder) or upload your own XML file below."),
-          # Add an upload button option
-          fileInput("quiz_file_upload", "Upload Quiz XML File:", accept = c(".xml")),
-        ),
+          )
+        )
+      ),
+
+      # Tabs for different views
+      fluidRow(
         column(
-          4,
-          # Quiz Title
-          textInput("quiz_title", "Quiz Title:", value = ""),
-          # File Title
-          textInput("file_title", "File Title:", value = "Quiz")
-        ),
-        column(
-          4,
-          # Global Settings
-          numericInput("seed", "Set Seed:", value = 123, min = 1)
+          12,
+          tabsetPanel(
+            tabPanel(
+              "View All",
+              fluidRow(
+                column(
+                  12,
+                  # Top-level controls for View All
+                  fluidRow(
+                    column(
+                      4,
+                      selectInput(
+                        "section_filter", "Select Section:",
+                        choices = c("All"),
+                        selected = "All"
+                      ),
+                      radioButtons(
+                        "view_format",
+                        "View Format:",
+                        choices = c("Question list" = "list", "Table" = "table"),
+                        selected = "table"
+                      )
+                    ),
+                    column(
+                      4,
+                      radioButtons(
+                        "show_answers",
+                        "Show Answers:",
+                        choices = c("Yes", "No"),
+                        selected = "No"
+                      ),
+                      radioButtons(
+                        "shuffle_answers",
+                        "Shuffle Answers:",
+                        choices = c("Yes", "No"),
+                        selected = "Yes"
+                      )
+                    ),
+                    column(
+                      4,
+                      downloadButton(
+                        "download_questions",
+                        "Download Questions as HTML"
+                      )
+                    )
+                  ),
+                  # Full-width display for questions
+                  htmlOutput("questions_output")
+                )
+              )
+            ),
+            tabPanel(
+              "View Quiz",
+              fluidRow(
+                column(
+                  12,
+                  # Full-width display for quiz
+                  fluidRow(
+                    column(
+                      4,
+                      numericInput(
+                        "num_versions",
+                        "Number of Versions:",
+                        value = 3,
+                        min = 1
+                      ),
+                      numericInput(
+                        "num_letter_versions",
+                        "Number of Letter Versions:",
+                        value = 2,
+                        min = 1
+                      ),
+                      # shuffle if all questions used
+                      radioButtons(
+                        "shuffle_questions",
+                        "Shuffle Questions:",
+                        choices = c("Yes", "No"),
+                        selected = "No"
+                      )
+                    ),
+                    column(
+                      4,
+                      selectInput(
+                        "quiz_version",
+                        "Select Version:",
+                        choices = NULL
+                      ),
+                      selectInput(
+                        "quiz_letter",
+                        "Select Letter:",
+                        choices = NULL
+                      ),
+                      checkboxInput(
+                        "highlight_answers",
+                        "Show Correct Answers",
+                        value = FALSE
+                      ),
+                      radioButtons(
+                        "quiz_display_option",
+                        "Display Option:",
+                        choices = c(
+                          "All as Table" = "table",
+                          "All as List" = "list",
+                          "First as Table, Rest as List" = "mixed"
+                        ),
+                        selected = "table"
+                      )
+                    ),
+                    column(
+                      4,
+                      # Save Options
+                      radioButtons(
+                        "template_selection",
+                        "Select Template:",
+                        choices = c("Basic", "MC - table", "MC - list"),
+                        selected = "Basic"
+                      ),
+                      # Add biorender note
+                      radioButtons(
+                        "biorender_note",
+                        "Add Biorender Footnote:",
+                        choices = c("Yes", "No"),
+                        selected = "Yes"
+                      ),
+                      downloadButton(
+                        "download_quiz",
+                        "Download Quiz as HTML"
+                      ),
+                      downloadButton(
+                        "download_quiz_word",
+                        "Download Quiz as Word"
+                      ),
+                      downloadButton(
+                        "download_answer_key",
+                        "Download Answer Key as CSV"
+                      )
+                    )
+                  ),
+                  fluidRow(
+                    column(
+                      12,
+                      class = "col-lg-8",
+                      htmlOutput("quiz_output")
+                    ),
+                    column(
+                      12,
+                      class = "col-lg-4",
+                      tableOutput("answer_key_table")
+                    )
+                  )
+                )
+              )
+            )
+          )
         )
       )
     )
   ),
 
-  # Tabs for different views
-  fluidRow(
-    column(
-      12,
-      tabsetPanel(
-        tabPanel(
-          "View All",
-          fluidRow(
-            column(
-              12,
-              # Top-level controls for View All
-              fluidRow(
-                column(
-                  4,
-                  selectInput(
-                    "section_filter", "Select Section:"
-                    , choices = c("All")
-                    , selected = "All"
-                  ),
-                  radioButtons(
-                    "view_format"
-                    , "View Format:"
-                    , choices = c("Question list" = "list", "Table" = "table")
-                    , selected = "table"
-                  )
-                ),
-                column(
-                  4,
-                  radioButtons(
-                    "show_answers"
-                    , "Show Answers:"
-                    , choices = c("Yes", "No")
-                    , selected = "No"
-                  ),
-                  radioButtons("shuffle_answers"
-                  , "Shuffle Answers:"
-                  , choices = c("Yes", "No")
-                  , selected = "Yes"
-                )
-                ),
-                column(
-                  4,
-                  downloadButton(
-                    "download_questions"
-                    , "Download Questions as HTML"
-                  )
-                )
-              ),
-              # Full-width display for questions
-              htmlOutput("questions_output")
-            )
-          )
-        ),
-        tabPanel(
-          "View Quiz",
-          fluidRow(
-            column(
-              12,
-              # Full-width display for quiz
-              fluidRow(
-                column(
-                  4,
-                  numericInput(
-                    "num_versions"
-                    , "Number of Versions:"
-                    , value = 3
-                    , min = 1
-                  ),
-                  numericInput(
-                    "num_letter_versions"
-                    , "Number of Letter Versions:"
-                    , value = 2
-                    , min = 1
-                  ),
-                  # shuffle if all questions used
-                  radioButtons(
-                    "shuffle_questions"
-                    , "Shuffle Questions:"
-                    , choices = c("Yes", "No")
-                    , selected = "No"
-                  )
-                ),
-                column(
-                  4,
-                  selectInput(
-                    "quiz_version"
-                    , "Select Version:"
-                    , choices = NULL
-                  ),
-                  selectInput(
-                    "quiz_letter"
-                    , "Select Letter:"
-                    , choices = NULL
-                  ),
-                  checkboxInput(
-                    "highlight_answers"
-                    , "Show Correct Answers"
-                    , value = FALSE
-                  ),
-                  radioButtons(
-                    "quiz_display_option"
-                    , "Display Option:"
-                    , choices = c(
-                      "All as Table" = "table"
-                      , "All as List" = "list"
-                      , "First as Table, Rest as List" = "mixed"
-                    )
-                    , selected = "table"
-                  ), 
-                ),
-                column(
-                  4,
-                  # Save Options
-                  # radioButtons(
-                  #   "output_format"
-                  #   , "Save As:"
-                  #   , choices = c("HTML", "Word")
-                  #   , selected = "HTML"
-                  # ),
-                  # actionButton("generate_files", "Generate Output Files"),
-
-                  # template selection
-                  radioButtons(
-                    "template_selection"
-                    , "Select Template:"
-                    , choices = c("Basic", "MC - table", "MC - list")
-                    , selected = "Basic"
-                  ),
-                  # Add biorender note
-                  radioButtons(
-                    "biorender_note"
-                    , "Add Biorender Footnote:"
-                    , choices = c("Yes", "No")
-                    , selected = "Yes"
-                  ),
-                  downloadButton(
-                    "download_quiz"
-                    , "Download Quiz as HTML"
-                  ),
-                  downloadButton(
-                    "download_quiz_word"
-                    , "Download Quiz as Word"
-                  ),
-                  downloadButton(
-                    "download_answer_key"
-                    , "Download Answer Key as CSV"
-                  )
-                )
-              ),
-                fluidRow(
-                column(
-                  12,
-                  class = "col-lg-8",
-                  htmlOutput("quiz_output")
-                ),
-                column(
-                  12,
-                  class = "col-lg-4",
-                  tableOutput("answer_key_table")
-                )
-                )
-            )
-          )
+  # Page 2: Word to D2L Import
+  tabPanel(
+    "Word to D2L import",
+    fluidPage(
+      titlePanel("Word to D2L Import"),
+      fluidRow(
+        column(
+          12,
+          fileInput("word_file_upload", "Upload Word File:", accept = c(".docx")),
+          actionButton("process_word_file", "Process Word File"),
+          helpText("Upload a Word document containing quiz questions to convert it into a D2L-compatible format.")
+        )
+      ),
+      fluidRow(
+        column(
+          12,
+          tableOutput("processed_questions_table"),
+          downloadButton("download_d2l_file", "Download D2L File")
         )
       )
     )
   )
 )
+
+# Define Server
+server <- function(input, output, session) {
+  # Existing server logic for "D2L export" remains unchanged
+
+  # New server logic for "Word to D2L import"
+  observeEvent(input$process_word_file, {
+    req(input$word_file_upload)
+    
+    # Placeholder logic for processing the Word file
+    # Replace this with actual logic to parse the Word file and extract questions
+    processed_questions <- data.frame(
+      Question = c("Sample Question 1", "Sample Question 2"),
+      Answer = c("Answer 1", "Answer 2")
+    )
+    
+    # Render the processed questions in a table
+    output$processed_questions_table <- renderTable({
+      processed_questions
+    })
+  })
+
+  output$download_d2l_file <- downloadHandler(
+    filename = function() {
+      "d2l_quiz.xml"
+    },
+    content = function(file) {
+      # Placeholder logic for generating the D2L XML file
+      # Replace this with actual logic to create the XML file
+      writeLines("<quiz><question>Sample Question</question></quiz>", file)
+    }
+  )
+}
+
+# Run the application
+shinyApp(ui = ui, server = server)
 
 # Define Server
 server <- function(input, output, session) {
