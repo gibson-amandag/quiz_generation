@@ -13,9 +13,13 @@ ol:not([type="A"]) {
     list-style-position: outside;
 }
 
+li.question-list{
+    margin-bottom: 10px;
+}
+
 ol[type="A"] {
     margin-left: 20px;
-    margin-bottom: 10px;
+    /* margin-bottom: 10px; */
     margin-top: 0px; /* Ensure no top margin for the first ol[type="A"] */
 }
 
@@ -86,7 +90,7 @@ td {
     .question-container {
         page-break-inside: avoid; /* Prevent <li> from breaking across pages */
     }
-    .tr {
+    tr {
         page-break-inside: avoid;
     }
     ol:not([type="A"]) > li {
