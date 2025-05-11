@@ -1,9 +1,8 @@
-generate_quiz_wordDoc <- function(selected_questions, shuffleLetter, quizTitle, versionNum, totalQs = 20, seed = 123, shuffleAnswers = FALSE, includeMCinfo = FALSE) {
+generate_quiz_wordDoc <- function(selected_questions, shuffleLetter, quizTitle, versionNum=NULL, totalQs = 20, seed = 123, shuffleAnswers = FALSE, includeMCinfo = FALSE) {
   # Set the seed for reproducibility
   set.seed(seed)
 
   # Read the base Word document template
-
   if(!file.exists(paste0("./WordPrintTemplates/Quiz_style_template_", shuffleLetter, ".docx"))) {
     base_doc <- read_docx("./WordPrintTemplates/Quiz_style_template.docx")
   } else {
@@ -14,7 +13,12 @@ generate_quiz_wordDoc <- function(selected_questions, shuffleLetter, quizTitle, 
   base_doc <- remove_all_paragraphs(base_doc)
   
   # Add title: "Quiz # (Version #)"
-  title <- paste0(quizTitle, " (Version ", versionNum, shuffleLetter, ")")
+  if(!is.null(versionNum)){
+    title <- paste0(quizTitle, " (Version ", versionNum, shuffleLetter, ")")
+  } else {
+    title <- quizTitle
+  }
+
   base_doc <- body_add_par(base_doc, value = title, style = "Title")
   
   if(includeMCinfo){

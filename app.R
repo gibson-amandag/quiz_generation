@@ -15,7 +15,7 @@ ui <- navbarPage(
 
   # Page 1: D2L Export
   tabPanel(
-    "D2L export",
+    "D2L export to paper",
     fluidPage(
       # Include the custom CSS file
       tags$head(
@@ -186,18 +186,33 @@ ui <- navbarPage(
                         "Add Biorender Footnote:",
                         choices = c("Yes", "No"),
                         selected = "Yes"
-                      ),
+                      )
+                    )
+                  ),
+                  fluidRow(
+                    column(
+                      4,
                       downloadButton(
                         "download_quiz",
-                        "Download Quiz as HTML"
+                        "Download Individual Quiz as HTML"
                       ),
+                      downloadButton(
+                        "download_all_quizzes",
+                        "Download All Quizzes as HTMLs"
+                      )
+                    ),
+                    column(
+                      4,
                       downloadButton(
                         "download_quiz_word",
                         "Download Quiz as Word"
-                      ),
+                      )
+                    ),
+                    column(
+                      4,
                       downloadButton(
                         "download_answer_key",
-                        "Download Answer Key as CSV"
+                        "Download All Answer Keys"
                       )
                     )
                   ),
@@ -249,6 +264,94 @@ ui <- navbarPage(
           12,
           # Display the quiz as HTML
           htmlOutput("quiz_html_output")
+        )
+      )
+    )
+  ),
+
+  # Page 3: Shuffle Word Doc
+  tabPanel(
+    "Shuffle Word Doc",
+    fluidPage(
+      titlePanel("Shuffle Word Doc"),
+      fluidRow(
+        column(
+          4,
+          fileInput("exam_file_upload", "Upload Exam File:", accept = c(".docx")),
+          helpText("Upload a Word document containing the exam to shuffle its questions."),
+          # Quiz Title
+          textInput("exam_title", "Print Title:", value = "Quiz"),
+          # File name
+          textInput("exam_file_name", "File Name:", value = "Quiz")
+          
+        ),
+        column(
+          4,
+          # number of letter versions
+          numericInput("num_letter_versions_shuffle", "Number of Letter Versions:", value = 2, min = 1),
+          numericInput("shuffle_seed", "Set Shuffle Seed:", value = 123, min = 1),
+          # select the version
+          selectInput(
+            "exam_version",
+            "Select Version:",
+            choices = NULL
+          )
+        ),
+        column(
+          4, 
+          # shuffle questions
+          radioButtons(
+            "shuffle_questions_exam",
+            "Shuffle Questions:",
+            choices = c("Yes", "No"),
+            selected = "No"
+          ),
+          # shuffle answers
+          radioButtons(
+            "shuffle_answers_exam",
+            "Shuffle Answers:",
+            choices = c("Yes", "No"),
+            selected = "Yes"
+          ),
+          # view
+          radioButtons(
+            "view_format_shuffle",
+            "Display format:",
+            choices = c("List" = "list", "Table" = "table"),
+            selected = "table"
+          )
+        )
+      ),
+      fluidRow(
+        column(
+          4,
+          radioButtons(
+            "template_selection_shuffle",
+            "Select Template:",
+            choices = c("Basic", "MC - table", "MC - list"),
+            selected = "Basic"
+          )
+        ),
+        column(
+          4,
+          # Add biorender note
+          radioButtons(
+            "biorender_note_shuffle",
+            "Add Biorender Footnote:",
+            choices = c("Yes", "No"),
+            selected = "Yes"
+          )
+        ),
+        column(
+          4,
+          downloadButton("download_shuffled_exam", "Download Shuffled Exam - Word"),
+          downloadButton("download_shuffled_exam_html", "Download Shuffled Exam - HTML")
+        )
+      ),
+      fluidRow(
+        column(
+          12,
+          htmlOutput("shuffled_exam_preview")
         )
       )
     )
@@ -405,7 +508,7 @@ server <- function(input, output, session) {
       quiz_title <- input$file_title
       selected_version <- input$quiz_version
       selected_letter <- input$quiz_letter
-
+  
       # Construct the filename
       paste0(quiz_title, "_", selected_version, selected_letter, ".html")
     },
@@ -414,59 +517,98 @@ server <- function(input, output, session) {
       selected_version <- input$quiz_version
       selected_letter <- input$quiz_letter
       show_answers <- input$highlight_answers
-
+  
       # Construct the key for the selected version/letter
       version_key <- paste0(selected_version, "_L", selected_letter)
-
+  
       # Get the HTML for the selected version/letter
       if (show_answers) {
         version_html <- quiz_versions_with_answers_html()[[version_key]]
       } else {
         version_html <- quiz_versions_html()[[version_key]]
       }
-
+  
       req(version_html) # Ensure the HTML exists
-
-      # Add a link to the style.css file in the header
-      css_content <- readLines("www/styles.css")
-
-      if (input$biorender_note == "No") {
-        # Replace the footer text with an empty string
-        css_content <- gsub("Figures created with biorender.com", "", css_content)
-      }
-
-      # Get the template quiz
-      template_file_name <- "basicTemplate"
-      if (input$template_selection == "MC - table") {
-        template_file_name <- "MC-table-template"
-      } else if (input$template_selection == "MC - list") {
-        template_file_name <- "MC-list-template"
-      }
-
-      intro_content <- readLines(paste0("www/", template_file_name, ".html"))
-
-      # Extract the body content from the template
-      body_start <- grep("<body>", intro_content) + 1
-      body_end <- grep("</body>", intro_content) - 1
-      body_content <- intro_content[body_start:body_end]
-
-      # Replace {{quiz_title}} with the actual quiz title
-      print_title <- paste0(input$quiz_title, " - ", selected_version, selected_letter)
-      body_content <- gsub("\\{\\{quiz_title\\}\\}", print_title, body_content)
-
-      # Combine the CSS content with the HTML content
-      styled_html <- paste0(
-        "<!DOCTYPE html><html><head><style>",
-        paste(css_content, collapse = "\n"),
-        "</style></head><body>",
-        # "<div>Test</div>",
-        paste(body_content, collapse = "\n"),
-        version_html,
-        "</body></html>"
+  
+      # Generate the styled HTML using the reusable function
+      styled_html <- generate_styled_html(
+        version_html = version_html,
+        css_file = "www/styles.css",
+        template_file = paste0("www/", if (input$template_selection == "MC - table") {
+          "MC-table-template.html"
+        } else if (input$template_selection == "MC - list") {
+          "MC-list-template.html"
+        } else {
+          "basicTemplate.html"
+        }),
+        quiz_title = input$quiz_title,
+        version = selected_version,
+        letter = selected_letter,
+        add_biorender_note = input$biorender_note == "Yes"
       )
-
+  
       # Write the styled HTML content to the file
       writeLines(styled_html, file)
+    }
+  )
+
+  output$download_all_quizzes <- downloadHandler(
+    filename = function() {
+      # Get the quiz title
+      quiz_title <- input$file_title
+      paste0(quiz_title, "_allVersions", ".zip")
+    },
+    content = function(file) {
+      # Create a temporary directory to store the HTML files
+      temp_dir <- tempdir()
+      dir.create(temp_dir)
+  
+      # Get all versions and letters
+      all_versions <- quiz_versions_html()
+      req(all_versions) # Ensure versions exist
+  
+      # List to store paths of generated HTML files
+      html_files <- c()
+  
+      # Loop through each version and letter
+      for (version_key in names(all_versions)) {
+        # Extract version and letter from the key
+        version <- gsub("_L.*", "", version_key)
+        letter <- gsub(".*_L", "", version_key)
+  
+        # Get the HTML for the current version/letter
+        version_html <- all_versions[[version_key]]
+        req(version_html)
+  
+        # Generate the styled HTML using the reusable function
+        styled_html <- generate_styled_html(
+          version_html = version_html,
+          css_file = "www/styles.css",
+          template_file = paste0("www/", if (input$template_selection == "MC - table") {
+            "MC-table-template.html"
+          } else if (input$template_selection == "MC - list") {
+            "MC-list-template.html"
+          } else {
+            "basicTemplate.html"
+          }),
+          quiz_title = input$file_title,
+          version = version,
+          letter = letter,
+          add_biorender_note = input$biorender_note == "Yes"
+        )
+  
+        # Write the styled HTML to a temporary file
+        temp_file <- file.path(temp_dir, paste0(input$file_title, "_", version, letter, ".html"))
+        writeLines(styled_html, temp_file)
+  
+        # Add the file path to the list of HTML files
+        html_files <- c(html_files, temp_file)
+      }
+  
+      # Create a ZIP file containing only the HTML files
+      old_wd <- setwd(temp_dir) # Temporarily change the working directory
+      on.exit(setwd(old_wd)) # Ensure the working directory is reset after zipping
+      zip(file, files = basename(html_files)) # Use relative paths for the ZIP file
     }
   )
 
@@ -572,7 +714,7 @@ server <- function(input, output, session) {
           } else if (input$quiz_display_option == "list") {
             dispFormat <- "list"
           } else if (input$quiz_display_option == "mixed") {
-            dispFormat <- if (version == 1 && letterNum == 1) "table" else "list"
+            dispFormat <- if (version == 1) "table" else "list"
           }
 
           # Generate HTML for this version/letterNum
@@ -805,6 +947,183 @@ server <- function(input, output, session) {
       showNotification(paste("Saved", section_filename, "to", output_dir), type = "message")
     }
   })
+
+
+  # Page 3: Shuffle Exam ------
+
+  # reactive value to store the exam data
+  exam_data <- reactiveVal(NULL)
+  # reactive value to store exam version questions
+  exam_versions_selected_questions <- reactiveVal(NULL)
+  # reactive value to store exam versions HTML
+  exam_versions_html <- reactiveVal(NULL)
+  # reactive value to store exam versions word
+  exam_versions_word <- reactiveVal(NULL)
+
+  # Load the exam file
+  observeEvent(
+    input$exam_file_upload, 
+    {
+    req(input$exam_file_upload)
+    file_path <- input$exam_file_upload$datapath
+
+    # Get the exam title from the uploaded word doc
+    exam_title <- tools::file_path_sans_ext(input$exam_file_upload$name)
+    if (is.null(exam_title) || exam_title == "") {
+      exam_title <- "Quiz"
+    }
+
+    # Update the exam title input
+    updateTextInput(session, "exam_file_name", value = exam_title)
+
+    # Read the exam from the Word document
+    exam_data <- read_quiz_from_word(file_path)
+    # print(exam_data)
+
+    # store in reactive value
+    exam_data(exam_data)
+    }
+  )
+
+  observeEvent(
+    {
+      input$num_letter_versions_shuffle
+      input$shuffle_seed
+      input$shuffle_questions_exam
+      input$shuffle_answers_exam
+      input$view_format_shuffle
+      input$exam_file_upload
+      input$exam_title
+    },
+    {
+    req(exam_data()) # Ensure exam data is available
+    # list for the exam versions
+    exam_htmls <- list()
+    # Initialize a list to store the word doc versions
+    exam_word_docs <- list()
+    # Loop through each version
+    for (version in seq_len(input$num_letter_versions_shuffle)) {
+      # print(exam_data())
+
+      # Select questions for this version
+      shuffleQuestionsIfAll <- if (input$shuffle_questions_exam == "Yes") TRUE else FALSE
+      selected_questions <- select_questions(exam_data(), seed = input$shuffle_seed + version, shuffleWithinSection = shuffleQuestionsIfAll)
+
+      # store the selected questions in the reactive value
+      exam_versions_selected_questions(selected_questions)
+
+      # Generate HTML for this version
+      version_html <- generate_questions_html(
+        selected_questions,
+        dispFormat = input$view_format_shuffle,
+        showAnswers = FALSE,
+        shuffleAnswers = input$shuffle_answers_exam == "Yes",
+        thisSeed = as.integer(paste0(input$shuffle_seed, version)),
+        showSectionTitles = FALSE # Hide section titles
+        , sampledQuestions = TRUE
+      )
+
+      # Generate the word document for this version
+      word_doc <- generate_quiz_wordDoc(
+        selected_questions = selected_questions,
+        shuffleLetter = LETTERS[version],
+        quizTitle = input$exam_title,
+        totalQs = sum(sapply(selected_questions, function(section) length(section$sampled_questions))),
+        seed = as.integer(paste0(input$shuffle_seed, version)),
+        shuffleAnswers = input$shuffle_answers_exam == "Yes",
+      )
+
+      # Store the HTML in the list
+      versionName <- LETTERS[version]
+      exam_htmls[[versionName]] <- version_html$questions
+      # Store the word doc in the list
+      exam_word_docs[[versionName]] <- word_doc
+    }
+
+    # Update the reactive value
+    exam_versions_html(exam_htmls)
+    exam_versions_word(exam_word_docs)
+
+    # Add options to the selectInput for exam versions
+    updateSelectInput(session, "exam_version", choices = names(exam_htmls), selected = LETTERS[1])
+
+    # display the selected version as HTML
+    output$shuffled_exam_preview <- renderUI({
+      # Get the selected version
+      selected_version <- input$exam_version
+
+      # Construct the key for the selected version
+      version_key <- selected_version
+
+      # Get the HTML for the selected version
+      version_html <- exam_htmls[[version_key]]
+
+      req(version_html) # Ensure the HTML exists
+
+      # Render the HTML
+      HTML(version_html)
+    })
+  })
+
+  # Download handler for saving the shuffled exam as a Word document
+  output$download_shuffled_exam <- downloadHandler(
+    filename = function() {
+      # Get the selected version
+      selected_version <- input$exam_version
+
+      # Construct the filename
+      paste0(input$exam_file_name, "_", selected_version, ".docx")
+    },
+    content = function(file) {
+      # Get the selected version
+      selected_version <- input$exam_version
+
+      # Get the word document for the selected version
+      word_doc <- exam_versions_word()[[selected_version]]
+      req(word_doc) # Ensure the word document exists
+
+      # Save the Word document to the specified file
+      print(word_doc, target = file)
+    }
+  )
+
+    output$download_shuffled_exam_html <- downloadHandler(
+    filename = function() {
+      # Get the selected version
+      selected_version <- input$exam_version
+  
+      # Construct the filename
+      paste0(input$exam_file_name, "_", selected_version, ".html")
+    },
+    content = function(file) {
+      # Get the selected version
+      selected_version <- input$exam_version
+  
+      # Get the HTML for the selected version
+      version_html <- exam_versions_html()[[selected_version]]
+      req(version_html) # Ensure the HTML exists
+  
+      # Generate the styled HTML using the reusable function
+      styled_html <- generate_styled_html(
+        version_html = version_html,
+        css_file = "www/styles.css",
+        template_file = paste0("www/", if (input$template_selection_shuffle == "MC - table") {
+          "MC-table-template.html"
+        } else if (input$template_selection_shuffle == "MC - list") {
+          "MC-list-template.html"
+        } else {
+          "basicTemplate.html"
+        }),
+        quiz_title = input$exam_title,
+        version = NULL,
+        letter = selected_version,
+        add_biorender_note = input$biorender_note_shuffle == "Yes"
+      )
+  
+      # Write the styled HTML content to the file
+      writeLines(styled_html, file)
+    }
+  )
 }
 
 # Run the application
