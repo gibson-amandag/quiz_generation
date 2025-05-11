@@ -9,6 +9,17 @@ read_quiz_from_word <- function(file_path) {
   # Convert the extracted text to a data frame
   text_df <- as.data.frame(text)
 
+  # if no level, check style
+  text_df <- text_df %>%
+    mutate(
+      level = ifelse(
+        is.na(level),
+        ifelse(style_name == "Level 1 list", 1, 
+               ifelse(style_name == "Level 2 list", 2, NA)), 
+        level
+      )
+    )
+
   # Replace apostrophes in the text column
   text_df$text <- gsub("’", "'", text_df$text)
 
@@ -119,6 +130,8 @@ read_quiz_from_word <- function(file_path) {
 
       # Append the question list to the section list
       section_list$questions[[j]] <- question_list
+      # Append the number of questions to the section list
+      section_list$num_items <- nrow(section_questions)
     }
 
     # Append the section list to the quiz list

@@ -437,3 +437,44 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
   # Return the result
   return(result)
 }
+
+generate_styled_html <- function(version_html, css_file, template_file, quiz_title, version = NULL, letter, add_biorender_note = TRUE) {
+  # Read the CSS content
+  css_content <- readLines(css_file)
+
+  # Replace {{version}} with the letter
+  css_content <- gsub("\\{\\{version\\}\\}", letter, css_content)
+
+  # Optionally remove the biorender note
+  if (!add_biorender_note) {
+    css_content <- gsub("Figures created with biorender.com", "", css_content)
+  }
+
+  # Read the template file
+  intro_content <- readLines(template_file)
+
+  # Extract the body content from the template
+  body_start <- grep("<body>", intro_content) + 1
+  body_end <- grep("</body>", intro_content) - 1
+  body_content <- intro_content[body_start:body_end]
+
+  # Replace {{quiz_title}} with the actual quiz title
+  if(!is.null(version)){
+    print_title <- paste0(quiz_title, " - ", version, letter)
+  } else {
+    print_title <- paste0(quiz_title, " - ", letter)
+  }
+  body_content <- gsub("\\{\\{quiz_title\\}\\}", print_title, body_content)
+
+  # Combine the CSS content, body content, and footer with the HTML content
+  styled_html <- paste0(
+    "<!DOCTYPE html><html><head><style>",
+    paste(css_content, collapse = "\n"),
+    "</style></head><body>",
+    paste(body_content, collapse = "\n"),
+    version_html,
+    "</body></html>"
+  )
+
+  return(styled_html)
+}

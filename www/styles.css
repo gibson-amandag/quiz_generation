@@ -79,6 +79,10 @@ td {
             font-family: Arial, sans-serif;
             font-size: 11pt;
           }
+          @bottom-right{
+            content: "{{version}}";
+            font-size: 11pt;
+          }
         @top-right {
             content: counter(page) " of " counter(pages);
             white-space: pre;
