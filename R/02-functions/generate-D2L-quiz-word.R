@@ -165,6 +165,9 @@ handle_fill_in_the_blanks <- function(question, base_doc, italic_text) {
   question_text <- clean_html_tags(question$question_text)
   question_fpar <- format_text_with_fp(question_text)
   base_doc <- body_add_fpar(base_doc, question_fpar, style = "Level 1 list")
+
+  base_doc <- body_add_par(base_doc, value = "", style = "Normal")
+
   
   return(base_doc)
 }
@@ -191,7 +194,6 @@ handle_matching <- function(question, base_doc, shuffleAnswers, italic_text) {
   )
 
   for(i in seq_len(max_length)) {
-    # print(prompts[i])
     choice_text <- if (i <= length(choices)) clean_html_tags(choices[[i]]$choice) else ""
     prompt_text <- if (i <= length(prompts)) clean_html_tags(prompts[[i]]$prompt) else ""
 
@@ -238,6 +240,16 @@ handle_ordering <- function(question, base_doc, shuffleAnswers, italic_text) {
   # Add answer options
   for (answer in answer_options) {
     answer_text <- clean_html_tags(answer)
+
+    if(answer_text == "") {
+      answer_text <- ""
+    } else {
+      if (str_starts(answer_text, "\n")) {
+        answer_text <- str_replace(answer_text, "^\n", "\n_____")
+      } else {
+        answer_text <- paste0("\n_____", answer_text)
+      }
+    }
     base_doc <- body_add_par(base_doc, value = answer_text, style = "Normal")
   }
   
@@ -250,9 +262,8 @@ handle_short_answer <- function(question, base_doc, italic_text) {
   question_text <- clean_html_tags(question$question_text)
   question_fpar <- format_text_with_fp(question_text)
   base_doc <- body_add_fpar(base_doc, question_fpar, style = "Level 1 list")
-  
-  # Add a placeholder for the answer
-  base_doc <- body_add_par(base_doc, value = "__________", style = "Normal")
+
+  base_doc <- body_add_par(base_doc, value = "", style = "Normal")
   
   return(base_doc)
 }
@@ -300,11 +311,8 @@ handle_multi_short_answer <- function(question, base_doc, italic_text) {
   question_text <- clean_html_tags(question$question_text)
   question_fpar <- format_text_with_fp(question_text)
   base_doc <- body_add_fpar(base_doc, question_fpar, style = "Level 1 list")
-  
-  # Add placeholders for multiple answers
-  for (i in seq_along(question$correct_answers)) {
-    base_doc <- body_add_par(base_doc, value = "__________", style = "Normal")
-  }
+
+  base_doc <- body_add_par(base_doc, value = "", style = "Normal")
   
   return(base_doc)
 }
@@ -317,7 +325,9 @@ handle_long_answer <- function(question, base_doc, italic_text) {
   base_doc <- body_add_fpar(base_doc, question_fpar, style = "Level 1 list")
   
   # Add space for a long answer
-  base_doc <- body_add_par(base_doc, value = "\n\n\n", style = "Normal")
+  base_doc <- body_add_par(base_doc, value = "", style = "Normal")
+  base_doc <- body_add_par(base_doc, value = "", style = "Normal")
+  base_doc <- body_add_par(base_doc, value = "", style = "Normal")
   
   return(base_doc)
 }
