@@ -214,11 +214,11 @@ render_question_html <- function(question, question_number, dispFormat, showAnsw
 
   question_html <- questionInfo$html
 
-  if(dispFormat == "list"){
+  if (dispFormat == "list") {
     question_html <- paste0(
       "<li class='question-list'>", question_html, "</li>"
     )
-  } else if(dispFormat == "div"){
+  } else if (dispFormat == "div") {
     question_html <- paste0(
       "<div class='question-container'>",
       "<div class='question-blank'></div>", # Blank column
@@ -226,10 +226,10 @@ render_question_html <- function(question, question_number, dispFormat, showAnsw
       "<strong>", question_number, ".</strong> ", question_html,
       "</div></div>"
     )
-  } else if(dispFormat == "table"){
+  } else if (dispFormat == "table") {
     question_html <- paste0(
       "<tr>",
-      if(showAnswers && !(question$question_type %in% c("Matching", "Ordering"))) paste0("<td class='correct-letter'>", questionInfo$correct_answer,"</td>") else "<td>&nbsp;</td>",
+      if (showAnswers && !(question$question_type %in% c("Matching", "Ordering"))) paste0("<td class='correct-letter'>", questionInfo$correct_answer, "</td>") else "<td>&nbsp;</td>",
       "<td>",
       "<strong>", question_number, ".</strong> ", question_html,
       "</td></tr>"
@@ -246,13 +246,30 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
   )
 
   # Determine the question type and render accordingly
-  result <- switch(
-    question$question_type,
+  result <- switch(question$question_type,
     "Multiple Choice" = ,
     "True/False" = ,
     "Multi-Select" = {
+      if(shuffleAnswers){
+        if(question$question_type == "True/False"){
+          shuffleAnswers <- FALSE
+        }
+        # Check if any answer includes "A and B," "B and C," or "A and C"
+        contains_combined_answers <- any(grepl("\\b(A and B|B and C|A and C)\\b", question$answers, ignore.case = TRUE))
+        
+        # Disable shuffling if such answers exist
+        if (contains_combined_answers) {
+          shuffleAnswers <- FALSE
+        }
+      }
+
       # Shuffle answers if the option is enabled
-      answer_options <- if (shuffleAnswers && question$question_type != "True/False") sample(question$answers) else question$answers
+      answer_options <- if (shuffleAnswers) sample(question$answers) else question$answers
+
+       # Ensure "All of the above" is at the end
+      if ("All of the above" %in% answer_options) {
+        answer_options <- c(setdiff(answer_options, "All of the above"), "All of the above")
+      }
 
       # Determine the correct answer letters
       correct_letter <- LETTERS[which(answer_options %in% question$correct_answers)]
@@ -296,7 +313,7 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
 
       # Add the correct answers to the HTML
       correct_answer_text <- paste(correct_answers, collapse = ", ")
-      
+
       list(html = question_html, correct_answer = correct_answer_text)
     },
     "Matching" = {
@@ -332,7 +349,7 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
       # Add choices to the left column
       for (choice in choices) {
         correctAnswer <- LETTERS[which(sapply(prompts, function(prompt) prompt$prompt_id) == choice$correct_prompt_id)]
-        if(showAnswers && !is.null(choice$correct_prompt)) {
+        if (showAnswers && !is.null(choice$correct_prompt)) {
           entryLine <- paste0("<u class='correct-letter'>", correctAnswer, "</u>")
         } else {
           entryLine <- "_____"
@@ -346,7 +363,7 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
 
       question_html <- paste0(
         question_html,
-         "</div>",
+        "</div>",
         "<div style='width: 50%; padding-left: 10px;'>"
       )
 
@@ -397,7 +414,7 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
         answer <- sub("<p>", "", answer) # Remove the first <p>
         answer <- sub("</p>", "", answer) # Remove the first </p>
 
-        if(showAnswers && !is.na(correct_order_index)) {
+        if (showAnswers && !is.na(correct_order_index)) {
           entryLine <- paste0("<u class='correct-letter'>", correct_order_index, "</u>")
         } else {
           entryLine <- "_____"
@@ -421,7 +438,7 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
 
       # Add the correct answers to the HTML
       correct_answer_text <- paste(correct_answers, collapse = ", ")
-      
+
       list(html = question_html, correct_answer = correct_answer_text)
     },
     "Arithmetic" = {
@@ -462,7 +479,7 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
 
       # Add the correct answers to the HTML
       correct_answer_text <- paste(correct_answers, collapse = ", ")
-      
+
       list(html = question_html, correct_answer = correct_answer_text)
     },
     "Long Answer" = {
@@ -473,7 +490,7 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
         question_html,
         "<p>&nbsp;</p><p>&nbsp;</p><p>&nbsp;</p>"
       )
-      
+
       list(html = question_html, correct_answer = correct_answer_text)
     },
     {

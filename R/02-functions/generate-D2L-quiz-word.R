@@ -141,8 +141,25 @@ format_text_with_fp <- function(text) {
 
 # Function to handle Multiple Choice, True/False, and Multi-Select questions
 handle_mc_tf_multi <- function(question, base_doc, shuffleAnswers, italic_text, bold_text) {
+  if(shuffleAnswers){
+    if(question$question_type == "True/False"){
+      shuffleAnswers <- FALSE
+    }
+    # Check if any answer includes "A and B," "B and C," or "A and C"
+    contains_combined_answers <- any(grepl("\\b(A and B|B and C|A and C)\\b", question$answers, ignore.case = TRUE))
+    
+    # Disable shuffling if such answers exist
+    if (contains_combined_answers) {
+      shuffleAnswers <- FALSE
+    }
+  }
   # Shuffle answers if enabled
-  answer_options <- if (shuffleAnswers && question$question_type != "True/False") sample(question$answers) else question$answers
+  answer_options <- if (shuffleAnswers) sample(question$answers) else question$answers
+  
+  # Ensure "All of the above" is at the end
+  if ("All of the above" %in% answer_options) {
+    answer_options <- c(setdiff(answer_options, "All of the above"), "All of the above")
+  }
   
   # Add question text
   question_text <- clean_html_tags(question$question_text)
