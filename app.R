@@ -192,6 +192,10 @@ ui <- fluidPage(
                     , "Download Quiz as HTML"
                   ),
                   downloadButton(
+                    "download_quiz_word"
+                    , "Download Quiz as Word"
+                  ),
+                  downloadButton(
                     "download_answer_key"
                     , "Download Answer Key as CSV"
                   )
@@ -227,6 +231,7 @@ server <- function(input, output, session) {
   quiz_data <- reactiveVal(NULL)
   questions_html <- reactiveVal(NULL) # Store the HTML content
   quiz_versions_html <- reactiveVal(NULL) # Store the quiz versions HTML content
+  quiz_versions_word <- reactiveVal(NULL) # Store the quiz versions word content
   quiz_versions_with_answers_html <- reactiveVal(NULL) # Store the quiz versions HTML content
   quiz_versions_answers <- reactiveVal(NULL) # Store the quiz answer data frames
 
@@ -431,6 +436,36 @@ server <- function(input, output, session) {
     }
   )
 
+  output$download_quiz_word <- downloadHandler(
+    filename = function() {
+      # Get the quiz title, version, and letter
+      quiz_title <- input$file_title
+      selected_version <- input$quiz_version
+      selected_letter <- input$quiz_letter
+      
+      # Construct the filename
+      paste0(quiz_title, "_", selected_version, selected_letter, ".docx")
+    },
+    content = function(file) {
+      # Require the word documents
+      word_docs <- quiz_versions_word()
+      req(word_docs) # Ensure the word documents are available
+
+      # get the selected version and letter
+      selected_version <- input$quiz_version
+      selected_letter <- input$quiz_letter
+
+      # Get the word document for the selected version/letter
+      version_key <- paste0(selected_version, "_L", selected_letter)
+
+      word_doc <- word_docs[[version_key]]
+      req(word_doc) # Ensure the word document exists
+      
+      # Save the Word document to the specified file
+      print(word_doc, target = file)
+    }
+  )
+
   # Download handler for saving the answer key as CSV
   output$download_answer_key <- downloadHandler(
     filename = function() {
@@ -470,6 +505,9 @@ server <- function(input, output, session) {
     input$num_letter_versions
     input$quiz_file
     input$shuffle_questions
+    input$quiz_file_upload
+    input$seed
+    input$quiz_title
   }, {
     req(quiz_data())  # Ensure quiz data is available
   
@@ -480,6 +518,9 @@ server <- function(input, output, session) {
 
     # Initialize a list to store answer keys
     answer_keys <- list()
+
+    # Initialize a list to store the word doc versions
+    word_docs <- list()
   
     # Loop through each version
     for (version in seq_len(input$num_versions)) {
@@ -519,6 +560,24 @@ server <- function(input, output, session) {
           showSectionTitles = FALSE  # Hide section titles
           , sampledQuestions = TRUE
         )
+
+        numQuestions <- sum(sapply(selected_questions, function(section) length(section$sampled_questions)))
+
+        title <- input$quiz_title
+        if(is.null(title) || title == "") {
+          title <- quiz_title <- quiz_data()$title
+        }
+
+        # # Generate the word document for this version/letterNum
+        word_doc <- generate_quiz_wordDoc(
+          selected_questions = selected_questions,
+          shuffleLetter = LETTERS[letterNum],
+          quizTitle = title,
+          versionNum = version,
+          totalQs = numQuestions,
+          seed = as.integer(paste0(input$seed, version, letterNum)),
+          shuffleAnswers = TRUE
+        )
   
         # Store the HTML in the list
         versionName <- paste0("V", version, "_L", LETTERS[letterNum])
@@ -526,11 +585,14 @@ server <- function(input, output, session) {
         versions_with_answers_html[[versionName]] <- version_with_answers_html$questions
         # Store the answer key in the list
         answer_keys[[versionName]] <- version_html$answers
+        # Store the word doc in the list
+        word_docs[[versionName]] <- word_doc
       }
     }
   
     # Update the reactive value
     quiz_versions_html(versions_html)
+    quiz_versions_word(word_docs)
     quiz_versions_with_answers_html(versions_with_answers_html)
     quiz_versions_answers(answer_keys)
   })

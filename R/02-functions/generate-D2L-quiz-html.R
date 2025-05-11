@@ -1,79 +1,3 @@
-generate_quiz_html_div <- function(selected_questions, template_file, output_folder, quiz_number, version_number, quiz_letter, seed = 123) {
-  set.seed(seed)
-  # Read the template
-  template <- readLines(template_file, warn = FALSE)
-
-  # Replace the quiz title placeholder
-  quiz_title <- paste("Quiz", quiz_number, paste0("V", version_number, quiz_letter))
-  template <- gsub("\\{\\{quiz_title\\}\\}", quiz_title, template)
-
-  # Generate the questions and answers HTML
-  answer_key_html <- "<h2>Answer Key</h2><ol>"
-  excel_key <- c() # Initialize a vector to store correct answers for Excel
-  question_number <- 1
-
-  questions_html <- paste0(
-    "<div class='question-container'>",
-    "<div class='question-blank'>Answer</div>", # Blank column
-    "<div class='question-content'>Question</div></div>"
-  )
-
-  for (section in selected_questions) {
-    for (question in section$sampled_questions) {
-      # Clean up question text: Remove the first <p> and </p> if they exist
-      question_text <- question$question_text
-      question_text <- sub("<p>", "", question_text) # Remove the first <p>
-      question_text <- sub("</p>", "", question_text) # Remove the first </p>
-
-      # Start the question container
-      questions_html <- paste0(
-        questions_html,
-        "<div class='question-container'>",
-        "<div class='question-blank'></div>", # Blank column
-        "<div class='question-content'>",
-        "<strong>", question_number, ".</strong> ", question_text,
-        "<ol type='A'>"
-      )
-
-      # Shuffle and add answers
-      shuffled_answers <- sample(question$answers)
-      for (answer in shuffled_answers) {
-        questions_html <- paste0(questions_html, "<li>", answer, "</li>")
-      }
-
-      # Add the correct answer to the answer key
-      correct_answer <- question$correct_answers[1] # Use the first correct answer from the parsed data
-      correct_letter <- LETTERS[which(shuffled_answers == correct_answer)]
-      answer_key_html <- paste0(answer_key_html, "<li>", correct_letter, "</li>")
-      excel_key <- c(excel_key, correct_letter) # Append the correct letter to the Excel key
-
-      # Close the question content and container
-      questions_html <- paste0(questions_html, "</ol></div></div>")
-
-      question_number <- question_number + 1
-    }
-  }
-  answer_key_html <- paste0(answer_key_html, "</ol>")
-
-  # Replace the questions placeholder
-  template <- gsub("\\{\\{questions\\}\\}", questions_html, template)
-
-  output_file <- file.path(output_folder, paste0("Quiz", quiz_number, "_V", version_number, quiz_letter, ".html"))
-  answer_key_file <- file.path(output_folder, paste0("Quiz", quiz_number, "_V", version_number, quiz_letter, "_ans.html"))
-  excel_key_file <- file.path(output_folder, paste0("Quiz", quiz_number, "_V", version_number, quiz_letter, "_KEY.html"))
-  # Write the final HTML to the output file
-  writeLines(template, output_file)
-  message("Quiz has been saved to ", output_file)
-
-  # Write the answer key to a separate file
-  writeLines(answer_key_html, answer_key_file)
-  message("Answer key has been saved to ", answer_key_file)
-
-  # Write the Excel-friendly key to a plain text file
-  writeLines(paste(excel_key, collapse = "\t"), excel_key_file)
-  message("Excel-friendly answer key has been saved to ", excel_key_file)
-}
-
 # Function to generate the quiz HTML using a template
 generate_quiz_html <- function(selected_questions, template_file, output_folder, quiz_number, version_number, quiz_letter, seed = 123) {
   set.seed(seed)
@@ -290,11 +214,11 @@ render_question_html <- function(question, question_number, dispFormat, showAnsw
 
   question_html <- questionInfo$html
 
-  if(dispFormat == "list"){
+  if (dispFormat == "list") {
     question_html <- paste0(
       "<li class='question-list'>", question_html, "</li>"
     )
-  } else if(dispFormat == "div"){
+  } else if (dispFormat == "div") {
     question_html <- paste0(
       "<div class='question-container'>",
       "<div class='question-blank'></div>", # Blank column
@@ -302,10 +226,10 @@ render_question_html <- function(question, question_number, dispFormat, showAnsw
       "<strong>", question_number, ".</strong> ", question_html,
       "</div></div>"
     )
-  } else if(dispFormat == "table"){
+  } else if (dispFormat == "table") {
     question_html <- paste0(
       "<tr>",
-      if(showAnswers && !(question$question_type %in% c("Matching", "Ordering"))) paste0("<td class='correct-letter'>", questionInfo$correct_answer,"</td>") else "<td>&nbsp;</td>",
+      if (showAnswers && !(question$question_type %in% c("Matching", "Ordering"))) paste0("<td class='correct-letter'>", questionInfo$correct_answer, "</td>") else "<td>&nbsp;</td>",
       "<td>",
       "<strong>", question_number, ".</strong> ", question_html,
       "</td></tr>"
@@ -322,13 +246,30 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
   )
 
   # Determine the question type and render accordingly
-  result <- switch(
-    question$question_type,
+  result <- switch(question$question_type,
     "Multiple Choice" = ,
     "True/False" = ,
     "Multi-Select" = {
+      if(shuffleAnswers){
+        if(question$question_type == "True/False"){
+          shuffleAnswers <- FALSE
+        }
+        # Check if any answer includes "A and B," "B and C," or "A and C"
+        contains_combined_answers <- any(grepl("\\b(A and B|B and C|A and C)\\b", question$answers, ignore.case = TRUE))
+        
+        # Disable shuffling if such answers exist
+        if (contains_combined_answers) {
+          shuffleAnswers <- FALSE
+        }
+      }
+
       # Shuffle answers if the option is enabled
       answer_options <- if (shuffleAnswers) sample(question$answers) else question$answers
+
+       # Ensure "All of the above" is at the end
+      if ("All of the above" %in% answer_options) {
+        answer_options <- c(setdiff(answer_options, "All of the above"), "All of the above")
+      }
 
       # Determine the correct answer letters
       correct_letter <- LETTERS[which(answer_options %in% question$correct_answers)]
@@ -372,7 +313,7 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
 
       # Add the correct answers to the HTML
       correct_answer_text <- paste(correct_answers, collapse = ", ")
-      
+
       list(html = question_html, correct_answer = correct_answer_text)
     },
     "Matching" = {
@@ -408,7 +349,7 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
       # Add choices to the left column
       for (choice in choices) {
         correctAnswer <- LETTERS[which(sapply(prompts, function(prompt) prompt$prompt_id) == choice$correct_prompt_id)]
-        if(showAnswers && !is.null(choice$correct_prompt)) {
+        if (showAnswers && !is.null(choice$correct_prompt)) {
           entryLine <- paste0("<u class='correct-letter'>", correctAnswer, "</u>")
         } else {
           entryLine <- "_____"
@@ -422,7 +363,7 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
 
       question_html <- paste0(
         question_html,
-         "</div>",
+        "</div>",
         "<div style='width: 50%; padding-left: 10px;'>"
       )
 
@@ -473,7 +414,7 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
         answer <- sub("<p>", "", answer) # Remove the first <p>
         answer <- sub("</p>", "", answer) # Remove the first </p>
 
-        if(showAnswers && !is.na(correct_order_index)) {
+        if (showAnswers && !is.na(correct_order_index)) {
           entryLine <- paste0("<u class='correct-letter'>", correct_order_index, "</u>")
         } else {
           entryLine <- "_____"
@@ -497,7 +438,7 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
 
       # Add the correct answers to the HTML
       correct_answer_text <- paste(correct_answers, collapse = ", ")
-      
+
       list(html = question_html, correct_answer = correct_answer_text)
     },
     "Arithmetic" = {
@@ -538,7 +479,7 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
 
       # Add the correct answers to the HTML
       correct_answer_text <- paste(correct_answers, collapse = ", ")
-      
+
       list(html = question_html, correct_answer = correct_answer_text)
     },
     "Long Answer" = {
@@ -549,7 +490,7 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
         question_html,
         "<p>&nbsp;</p><p>&nbsp;</p><p>&nbsp;</p>"
       )
-      
+
       list(html = question_html, correct_answer = correct_answer_text)
     },
     {
