@@ -12,8 +12,95 @@ library(stringr)
 ui <- navbarPage(
   title = "Quiz Tool",
   theme = shinytheme("cerulean"),
+    # Page 1: Shuffle Word Doc
+    tabPanel(
+    "Shuffle Word Doc",
+    fluidPage(
+      titlePanel("Shuffle Word Doc"),
+      fluidRow(
+        column(
+          4,
+          fileInput("exam_file_upload", "Upload Exam File:", accept = c(".docx")),
+          helpText("Upload a Word document containing the exam to shuffle its questions."),
+          # Quiz Title
+          textInput("exam_title", "Print Title:", value = "Quiz"),
+          # File name
+          textInput("exam_file_name", "File Name:", value = "Quiz")
+          
+        ),
+        column(
+          4,
+          # number of letter versions
+          numericInput("num_letter_versions_shuffle", "Number of Letter Versions:", value = 2, min = 1),
+          numericInput("shuffle_seed", "Set Shuffle Seed:", value = 123, min = 1),
+          # select the version
+          selectInput(
+            "exam_version",
+            "Select Version:",
+            choices = NULL
+          )
+        ),
+        column(
+          4, 
+          # shuffle questions
+          radioButtons(
+            "shuffle_questions_exam",
+            "Shuffle Questions:",
+            choices = c("Yes", "No"),
+            selected = "No"
+          ),
+          # shuffle answers
+          radioButtons(
+            "shuffle_answers_exam",
+            "Shuffle Answers:",
+            choices = c("Yes", "No"),
+            selected = "Yes"
+          ),
+          # view
+          radioButtons(
+            "view_format_shuffle",
+            "Display format:",
+            choices = c("List" = "list", "Table" = "table"),
+            selected = "table"
+          )
+        )
+      ),
+      fluidRow(
+        column(
+          4,
+          radioButtons(
+            "template_selection_shuffle",
+            "Select Template:",
+            choices = c("Basic", "MC - table", "MC - list"),
+            selected = "Basic"
+          )
+        ),
+        column(
+          4,
+          # Add biorender note
+          radioButtons(
+            "biorender_note_shuffle",
+            "Add Biorender Footnote:",
+            choices = c("Yes", "No"),
+            selected = "Yes"
+          )
+        ),
+        column(
+          4,
+          downloadButton("download_shuffled_exam", "Download Shuffled Exam - Word"),
+          downloadButton("download_shuffled_exam_html", "Download Shuffled Exam - HTML")
+        )
+      ),
+      fluidRow(
+        column(
+          12,
+          htmlOutput("shuffled_exam_preview")
+        )
+      )
+    )
+  ),
 
-  # Page 1: D2L Export
+  # Page 2: D2L Export
   tabPanel(
     "D2L export to paper",
     fluidPage(
@@ -237,7 +324,7 @@ ui <- navbarPage(
     )
   ),
 
-  # Page 2: Word to D2L Import
+  # Page 3: Word to D2L Import
   tabPanel(
     "Word to D2L import",
     fluidPage(
@@ -264,94 +351,6 @@ ui <- navbarPage(
           12,
           # Display the quiz as HTML
           htmlOutput("quiz_html_output")
-        )
-      )
-    )
-  ),
-
-  # Page 3: Shuffle Word Doc
-  tabPanel(
-    "Shuffle Word Doc",
-    fluidPage(
-      titlePanel("Shuffle Word Doc"),
-      fluidRow(
-        column(
-          4,
-          fileInput("exam_file_upload", "Upload Exam File:", accept = c(".docx")),
-          helpText("Upload a Word document containing the exam to shuffle its questions."),
-          # Quiz Title
-          textInput("exam_title", "Print Title:", value = "Quiz"),
-          # File name
-          textInput("exam_file_name", "File Name:", value = "Quiz")
-          
-        ),
-        column(
-          4,
-          # number of letter versions
-          numericInput("num_letter_versions_shuffle", "Number of Letter Versions:", value = 2, min = 1),
-          numericInput("shuffle_seed", "Set Shuffle Seed:", value = 123, min = 1),
-          # select the version
-          selectInput(
-            "exam_version",
-            "Select Version:",
-            choices = NULL
-          )
-        ),
-        column(
-          4, 
-          # shuffle questions
-          radioButtons(
-            "shuffle_questions_exam",
-            "Shuffle Questions:",
-            choices = c("Yes", "No"),
-            selected = "No"
-          ),
-          # shuffle answers
-          radioButtons(
-            "shuffle_answers_exam",
-            "Shuffle Answers:",
-            choices = c("Yes", "No"),
-            selected = "Yes"
-          ),
-          # view
-          radioButtons(
-            "view_format_shuffle",
-            "Display format:",
-            choices = c("List" = "list", "Table" = "table"),
-            selected = "table"
-          )
-        )
-      ),
-      fluidRow(
-        column(
-          4,
-          radioButtons(
-            "template_selection_shuffle",
-            "Select Template:",
-            choices = c("Basic", "MC - table", "MC - list"),
-            selected = "Basic"
-          )
-        ),
-        column(
-          4,
-          # Add biorender note
-          radioButtons(
-            "biorender_note_shuffle",
-            "Add Biorender Footnote:",
-            choices = c("Yes", "No"),
-            selected = "Yes"
-          )
-        ),
-        column(
-          4,
-          downloadButton("download_shuffled_exam", "Download Shuffled Exam - Word"),
-          downloadButton("download_shuffled_exam_html", "Download Shuffled Exam - HTML")
-        )
-      ),
-      fluidRow(
-        column(
-          12,
-          htmlOutput("shuffled_exam_preview")
         )
       )
     )
