@@ -1,19 +1,13 @@
-library(officer)
-library(stringr)
-
 generate_quiz_wordDoc <- function(selected_questions, shuffleLetter, quizTitle, versionNum, totalQs = 20, seed = 123, shuffleAnswers = FALSE, includeMCinfo = FALSE) {
   # Set the seed for reproducibility
   set.seed(seed)
 
   # Read the base Word document template
-  base_doc <- read_docx(paste0("./WordDocs/Quiz_style_template_", shuffleLetter, ".docx"))
-  
-  # Helper function to remove all paragraphs from the document
-  remove_all_paragraphs <- function(doc) {
-    while (length(docx_summary(doc)$content) > 0) {
-      doc <- body_remove(doc)
-    }
-    return(doc)
+
+  if(!file.exists(paste0("./WordPrintTemplates/Quiz_style_template_", shuffleLetter, ".docx"))) {
+    base_doc <- read_docx("./WordPrintTemplates/Quiz_style_template.docx")
+  } else {
+    base_doc <- read_docx(paste0("./WordPrintTemplates/Quiz_style_template_", shuffleLetter, ".docx"))
   }
   
   # Remove all paragraphs from base_doc
@@ -75,6 +69,14 @@ generate_quiz_wordDoc <- function(selected_questions, shuffleLetter, quizTitle, 
 
   return(base_doc)
 }
+
+# Helper function to remove all paragraphs from the document
+  remove_all_paragraphs <- function(doc) {
+    while (length(docx_summary(doc)$content) > 0) {
+      doc <- body_remove(doc)
+    }
+    return(doc)
+  }
 
 # Create a text formatting property for italics
 italic_text <- fp_text_lite(italic = TRUE)
