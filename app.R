@@ -46,12 +46,6 @@ ui <- navbarPage(
           "Original Doc",
           fluidRow(
             column(
-              4,
-              actionButton("save_correct_answers", "Save Correct Answers")
-            )
-          ),
-          fluidRow(
-            column(
               12,
               uiOutput("answer_selection_dropdowns")
             )
@@ -90,6 +84,13 @@ ui <- navbarPage(
                 "exam_version",
                 "Select Version:",
                 choices = NULL
+              ),
+              # shuffle show answers
+              radioButtons(
+                "show_answers_exam",
+                "Show Answers:",
+                choices = c("Yes", "No"),
+                selected = "No"
               )
             )
           ),
@@ -1067,7 +1068,25 @@ server <- function(input, output, session) {
     })
   })
 
-  observeEvent(input$save_correct_answers, {
+    # Reactive expression to monitor all correct_answer_* inputs
+  all_correct_answers <- reactive({
+    req(exam_data()) # Ensure exam data is available
+  
+    # Get the current exam data
+    current_exam_data <- exam_data()
+  
+    # Collect all correct_answer_* inputs
+    lapply(seq_along(current_exam_data), function(section_index) {
+      section <- current_exam_data[[section_index]]
+      lapply(seq_along(section$questions), function(question_index) {
+        input_id <- paste0("correct_answer_", question_index)
+        input[[input_id]] # Collect the value of each input
+      })
+    })
+  })
+  
+  # Observe changes in any correct_answer_* input
+  observeEvent(all_correct_answers(), {
     req(exam_data()) # Ensure exam data is available
   
     # Get the current exam data
@@ -1098,11 +1117,6 @@ server <- function(input, output, session) {
   
     # Update the reactive exam_data with the modified sections
     exam_data(updated_sections)
-
-    print(exam_data())
-  
-    # Notify the user
-    showNotification("Correct answers have been saved to exam_data.", type = "message")
   })
 
   observeEvent(
@@ -1114,6 +1128,8 @@ server <- function(input, output, session) {
       input$view_format_shuffle
       input$exam_file_upload
       input$exam_title
+      input$show_answers_exam
+      all_correct_answers()
     },
     {
       req(exam_data()) # Ensure exam data is available
@@ -1136,7 +1152,7 @@ server <- function(input, output, session) {
         version_html <- generate_questions_html(
           selected_questions,
           dispFormat = input$view_format_shuffle,
-          showAnswers = FALSE,
+          showAnswers = input$show_answers_exam == "Yes",
           shuffleAnswers = input$shuffle_answers_exam == "Yes",
           thisSeed = as.integer(paste0(input$shuffle_seed, version)),
           showSectionTitles = FALSE # Hide section titles
