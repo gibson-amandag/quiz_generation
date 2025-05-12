@@ -2,6 +2,8 @@
 
 This repository contains a Shiny application designed to help users interact with quizzes. The application allows users to load quizzes from XML or Word files, shuffle questions, generate multiple versions, and export quizzes in various formats (HTML, Word, and CSV).
 
+You can clone the repo to make your own version and edit templates, or use the standing application here: [Quiz Generation App](https://0196c215-c833-2a0b-bdba-5bf91f7322eb.share.connect.posit.cloud/)
+
 ## Project Structure
 
 The project is organized as follows:
@@ -36,7 +38,14 @@ quiz-shiny-app
 - **Answer Keys**: Automatically generate answer keys for each quiz version.
 - **Customizable Templates**: Use predefined HTML and Word doc templates for quiz formatting.
 
-## Installation
+
+## Usage
+
+### Web application
+
+Use the application as it exists on Posit Connect Cloud: [https://0196c215-c833-2a0b-bdba-5bf91f7322eb.share.connect.posit.cloud/](https://0196c215-c833-2a0b-bdba-5bf91f7322eb.share.connect.posit.cloud/)
+
+### Install, edit, and use a local version
 
 To run the application, ensure you have R and the necessary packages installed. You can install the required packages using the following command:
 
@@ -44,7 +53,6 @@ To run the application, ensure you have R and the necessary packages installed. 
 install.packages(c("shiny", "xml2", "dplyr", "officer", "stringr"))
 ```
 
-## Usage
 
 1. Clone the repository to your local machine.
 2. Navigate to the project directory.
@@ -63,4 +71,4 @@ install.packages(c("shiny", "xml2", "dplyr", "officer", "stringr"))
 
 ## License
 
-This project is licensed under the MIT License. See the LICENSE file for details.
+This project is licensed under the MIT License.
