@@ -46,8 +46,14 @@ ui <- navbarPage(
           "Original Doc",
           fluidRow(
             column(
+              4,
+              actionButton("save_correct_answers", "Save Correct Answers")
+            )
+          ),
+          fluidRow(
+            column(
               12,
-              htmlOutput("original_exam_preview")
+              uiOutput("answer_selection_dropdowns")
             )
           )
         ),
@@ -1007,6 +1013,97 @@ server <- function(input, output, session) {
       exam_data(exam_data)
     }
   )
+
+  observeEvent(input$exam_file_upload, {
+    req(exam_data()) # Ensure exam data is available
+
+    # combine all the questions into one list
+    all_questions <- unlist(lapply(exam_data(), function(section) section$questions), recursive = FALSE)
+
+    # render the dropdowns
+    output$answer_selection_dropdowns <- renderUI({
+      # Generate the UI for each question
+      question_ui <- lapply(seq_along(all_questions), function(i) {
+        question <- all_questions[[i]]
+        question_text <- question$question_text
+    
+        if (question$question_type == "Multiple Choice") {
+          answer_choices <- question$answers
+          num_answers <- length(answer_choices)
+    
+          # Render the question HTML using render_internalQuestion_html
+          rendered_question <- render_internalQuestion_html(
+            question = question,
+            question_number = i,
+            dispFormat = "table", # Use list format
+            showAnswers = FALSE, # Do not show answers
+            shuffleAnswers = FALSE # Do not shuffle answers
+          )
+    
+          # Create the UI structure using fluidRow and column
+          fluidRow(
+            column(
+              width = 2,
+              # Answer selection dropdown
+              selectInput(
+                inputId = paste0("correct_answer_", i),
+                label = paste("Q", i),
+                choices = LETTERS[1:num_answers],
+                # choices = answer_choices,
+                selected = NULL
+              )
+            ),
+            column(
+              width = 10,
+              # Render the question and answer options
+              HTML(paste0("<strong>", i, ". </strong>", rendered_question$html))
+            )
+          )
+        }
+      })
+    
+      # Combine all question UIs into a single tagList
+      do.call(tagList, question_ui)
+    })
+  })
+
+  observeEvent(input$save_correct_answers, {
+    req(exam_data()) # Ensure exam data is available
+  
+    # Get the current exam data
+    current_exam_data <- exam_data()
+  
+    # Iterate through each section and question
+    updated_sections <- lapply(current_exam_data, function(section) {
+      updated_questions <- lapply(seq_along(section$questions), function(index) {
+        question <- section$questions[[index]]
+        if (question$question_type == "Multiple Choice") {
+          # Get the selected letter for this question
+          input_id <- paste0("correct_answer_", index)
+          if (!is.null(input[[input_id]])) {
+            selected_letter <- input[[input_id]]
+  
+            # Map the selected letter to the corresponding answer text
+            selected_answer <- question$answers[which(LETTERS == selected_letter)]
+            question$correct_answers <- selected_answer
+          }
+        }
+        return(question)
+      })
+  
+      # Update the section with the modified questions
+      section$questions <- updated_questions
+      return(section)
+    })
+  
+    # Update the reactive exam_data with the modified sections
+    exam_data(updated_sections)
+
+    print(exam_data())
+  
+    # Notify the user
+    showNotification("Correct answers have been saved to exam_data.", type = "message")
+  })
 
   observeEvent(
     {
