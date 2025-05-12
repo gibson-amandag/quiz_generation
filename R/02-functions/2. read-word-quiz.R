@@ -107,6 +107,9 @@ read_quiz_from_word <- function(file_path) {
 
     # if no rows in section_questions, go to next section
     if (nrow(section_questions) == 0) {
+      section_list$questions <- list()
+      section_list$num_items <- 0
+      quiz[[i]] <- section_list
       next
     }
 
