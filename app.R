@@ -12,8 +12,8 @@ library(stringr)
 ui <- navbarPage(
   title = "Quiz Tool",
   theme = shinytheme("cerulean"),
-    # Page 1: Shuffle Word Doc
-    tabPanel(
+  # Page 1: Shuffle Word Doc
+  tabPanel(
     "Shuffle Word Doc",
     fluidPage(
       titlePanel("Shuffle Word Doc"),
@@ -21,80 +21,133 @@ ui <- navbarPage(
         column(
           4,
           fileInput("exam_file_upload", "Upload Exam File:", accept = c(".docx")),
-          helpText("Upload a Word document containing the exam to shuffle its questions."),
+          helpText("Upload a Word document containing the exam to shuffle its questions.")
+        ),
+        column(
+          4,
           # Quiz Title
           textInput("exam_title", "Print Title:", value = "Quiz"),
           # File name
           textInput("exam_file_name", "File Name:", value = "Quiz")
-          
         ),
         column(
           4,
-          # number of letter versions
-          numericInput("num_letter_versions_shuffle", "Number of Letter Versions:", value = 2, min = 1),
-          numericInput("shuffle_seed", "Set Shuffle Seed:", value = 123, min = 1),
-          # select the version
-          selectInput(
-            "exam_version",
-            "Select Version:",
-            choices = NULL
-          )
-        ),
-        column(
-          4, 
-          # shuffle questions
-          radioButtons(
-            "shuffle_questions_exam",
-            "Shuffle Questions:",
-            choices = c("Yes", "No"),
-            selected = "No"
-          ),
-          # shuffle answers
-          radioButtons(
-            "shuffle_answers_exam",
-            "Shuffle Answers:",
-            choices = c("Yes", "No"),
-            selected = "Yes"
-          ),
           # view
-          radioButtons(
-            "view_format_shuffle",
-            "Display format:",
-            choices = c("List" = "list", "Table" = "table"),
-            selected = "table"
-          )
+              radioButtons(
+                "view_format_shuffle",
+                "Display format:",
+                choices = c("List" = "list", "Table" = "table"),
+                selected = "table"
+              )
         )
       ),
-      fluidRow(
-        column(
-          4,
-          radioButtons(
-            "template_selection_shuffle",
-            "Select Template:",
-            choices = c("Basic", "MC - table", "MC - list"),
-            selected = "Basic"
+      tabsetPanel(
+        tabPanel(
+          "Original Doc",
+          fluidRow(
+            column(
+              4,
+              textAreaInput(
+                "answer_key_paste",
+                "Paste Answer Key:",
+                placeholder = "Paste the answer key here, with each question on its own row.",
+                rows = 5,
+                width = "100%"
+              )
+            )
+          ),
+          fluidRow(
+            column(
+              12,
+              uiOutput("answer_selection_dropdowns")
+            )
           )
         ),
-        column(
-          4,
-          # Add biorender note
-          radioButtons(
-            "biorender_note_shuffle",
-            "Add Biorender Footnote:",
-            choices = c("Yes", "No"),
-            selected = "Yes"
+        tabPanel(
+          "Shuffled Versions",
+          fluidRow(
+            column(
+              4,
+              # shuffle questions
+              radioButtons(
+                "shuffle_questions_exam",
+                "Shuffle Questions:",
+                choices = c("Yes", "No"),
+                selected = "No"
+              ),
+              # shuffle answers
+              radioButtons(
+                "shuffle_answers_exam",
+                "Shuffle Answers:",
+                choices = c("Yes", "No"),
+                selected = "Yes"
+              )
+            ),
+            column(
+              4,
+              # number of letter versions
+              numericInput("num_letter_versions_shuffle", "Number of Letter Versions:", value = 2, min = 1),
+              numericInput("shuffle_seed", "Set Shuffle Seed:", value = 123, min = 1)
+            ),
+            column(
+              4,
+              # select the version
+              selectInput(
+                "exam_version",
+                "Select Version:",
+                choices = NULL
+              ),
+              # shuffle show answers
+              radioButtons(
+                "show_answers_exam",
+                "Show Answers:",
+                choices = c("Yes", "No"),
+                selected = "No"
+              )
+            )
+          ),
+          fluidRow(
+            column(
+              4,
+              radioButtons(
+                "template_selection_shuffle",
+                "Select Template:",
+                choices = c("Basic", "MC - table", "MC - list"),
+                selected = "Basic"
+              )
+            ),
+            column(
+              4,
+              # Add biorender note
+              radioButtons(
+                "biorender_note_shuffle",
+                "Add Biorender Footnote:",
+                choices = c("Yes", "No"),
+                selected = "Yes"
+              )
+            ),
+            column(
+              4,
+              downloadButton("download_shuffled_exam", "Download Shuffled Exam - Word"),
+              downloadButton("download_shuffled_exam_html", "Download Shuffled Exam - HTML"),
+              downloadButton(
+                        "download_shuffled_keys",
+                        "Download All Answer Keys"
+                      )
+            )
+          ),
+          fluidRow(
+            column(
+              12,
+              class = "col-lg-8",
+              htmlOutput("shuffled_exam_preview")
+            ),
+            column(
+              12,
+              class = "col-lg-4",
+              tableOutput("shuffled_exam_answer_key_table")
+            )
           )
-        ),
-        column(
-          4,
-          downloadButton("download_shuffled_exam", "Download Shuffled Exam - Word"),
-          downloadButton("download_shuffled_exam_html", "Download Shuffled Exam - HTML")
-        )
-      ),
-      fluidRow(
-        column(
-          12,
-          htmlOutput("shuffled_exam_preview")
         )
       )
     )
@@ -342,7 +395,7 @@ ui <- navbarPage(
         column(
           12,
           tableOutput("processed_questions_table"),
-        #   actionButton("save_d2l_csvs", "Save D2L CSVs to output folder"),
+          #   actionButton("save_d2l_csvs", "Save D2L CSVs to output folder"),
           downloadButton("download_d2l_file", "Specify D2L CSV save location")
         )
       ),
@@ -507,7 +560,7 @@ server <- function(input, output, session) {
       quiz_title <- input$file_title
       selected_version <- input$quiz_version
       selected_letter <- input$quiz_letter
-  
+
       # Construct the filename
       paste0(quiz_title, "_", selected_version, selected_letter, ".html")
     },
@@ -516,19 +569,19 @@ server <- function(input, output, session) {
       selected_version <- input$quiz_version
       selected_letter <- input$quiz_letter
       show_answers <- input$highlight_answers
-  
+
       # Construct the key for the selected version/letter
       version_key <- paste0(selected_version, "_L", selected_letter)
-  
+
       # Get the HTML for the selected version/letter
       if (show_answers) {
         version_html <- quiz_versions_with_answers_html()[[version_key]]
       } else {
         version_html <- quiz_versions_html()[[version_key]]
       }
-  
+
       req(version_html) # Ensure the HTML exists
-  
+
       # Generate the styled HTML using the reusable function
       styled_html <- generate_styled_html(
         version_html = version_html,
@@ -545,7 +598,7 @@ server <- function(input, output, session) {
         letter = selected_letter,
         add_biorender_note = input$biorender_note == "Yes"
       )
-  
+
       # Write the styled HTML content to the file
       writeLines(styled_html, file)
     }
@@ -561,24 +614,24 @@ server <- function(input, output, session) {
       # Create a temporary directory to store the HTML files
       temp_dir <- tempdir()
       dir.create(temp_dir)
-  
+
       # Get all versions and letters
       all_versions <- quiz_versions_html()
       req(all_versions) # Ensure versions exist
-  
+
       # List to store paths of generated HTML files
       html_files <- c()
-  
+
       # Loop through each version and letter
       for (version_key in names(all_versions)) {
         # Extract version and letter from the key
         version <- gsub("_L.*", "", version_key)
         letter <- gsub(".*_L", "", version_key)
-  
+
         # Get the HTML for the current version/letter
         version_html <- all_versions[[version_key]]
         req(version_html)
-  
+
         # Generate the styled HTML using the reusable function
         styled_html <- generate_styled_html(
           version_html = version_html,
@@ -595,15 +648,15 @@ server <- function(input, output, session) {
           letter = letter,
           add_biorender_note = input$biorender_note == "Yes"
         )
-  
+
         # Write the styled HTML to a temporary file
         temp_file <- file.path(temp_dir, paste0(input$file_title, "_", version, letter, ".html"))
         writeLines(styled_html, temp_file)
-  
+
         # Add the file path to the list of HTML files
         html_files <- c(html_files, temp_file)
       }
-  
+
       # Create a ZIP file containing only the HTML files
       old_wd <- setwd(temp_dir) # Temporarily change the working directory
       on.exit(setwd(old_wd)) # Ensure the working directory is reset after zipping
@@ -956,33 +1009,180 @@ server <- function(input, output, session) {
   exam_versions_selected_questions <- reactiveVal(NULL)
   # reactive value to store exam versions HTML
   exam_versions_html <- reactiveVal(NULL)
+  # reactive value to store exam versions answer keys
+  exam_versions_answer_keys <- reactiveVal(NULL)
   # reactive value to store exam versions word
   exam_versions_word <- reactiveVal(NULL)
 
   # Load the exam file
   observeEvent(
-    input$exam_file_upload, 
+    input$exam_file_upload,
     {
-    req(input$exam_file_upload)
-    file_path <- input$exam_file_upload$datapath
+      req(input$exam_file_upload)
+      file_path <- input$exam_file_upload$datapath
 
-    # Get the exam title from the uploaded word doc
-    exam_title <- tools::file_path_sans_ext(input$exam_file_upload$name)
-    if (is.null(exam_title) || exam_title == "") {
-      exam_title <- "Quiz"
-    }
+      # Get the exam title from the uploaded word doc
+      exam_title <- tools::file_path_sans_ext(input$exam_file_upload$name)
+      if (is.null(exam_title) || exam_title == "") {
+        exam_title <- "Quiz"
+      }
 
-    # Update the exam title input
-    updateTextInput(session, "exam_file_name", value = exam_title)
+      # Update the exam title input
+      updateTextInput(session, "exam_file_name", value = exam_title)
 
-    # Read the exam from the Word document
-    exam_data <- read_quiz_from_word(file_path)
-    # print(exam_data)
+      # Read the exam from the Word document
+      exam_data <- read_quiz_from_word(file_path)
+      # print(exam_data)
 
-    # store in reactive value
-    exam_data(exam_data)
+      # store in reactive value
+      exam_data(exam_data)
     }
   )
+
+  observeEvent(input$answer_key_paste, {
+    req(exam_data()) # Ensure exam data is available
+  
+    # Get the current exam data
+    current_exam_data <- exam_data()
+  
+    # Split the input into lines
+    answer_lines <- unlist(strsplit(input$answer_key_paste, "\n"))
+  
+    # Iterate through each section and question
+    updated_sections <- lapply(current_exam_data, function(section) {
+      updated_questions <- lapply(seq_along(section$questions), function(index) {
+        question <- section$questions[[index]]
+        if (question$question_type == "Multiple Choice") {
+          # Get the selected letter for this question from the pasted answer key
+          selected_letter <- answer_lines[index]
+          upper_case <- toupper(selected_letter)
+          choices <- LETTERS[1:length(question$answers)]
+          # check if the selected letter is in the choices
+          if (upper_case %in% choices){
+            # Dynamically update the dropdown selection
+            updateSelectInput(
+              session,
+              inputId = paste0("correct_answer_", index),
+              selected = upper_case
+            )
+          }
+        }
+        return(question)
+      })
+  
+      # Update the section with the modified questions
+      section$questions <- updated_questions
+      return(section)
+    })
+  
+    # Update the reactive exam_data with the modified sections
+    exam_data(updated_sections)
+  })
+
+
+  observeEvent(input$exam_file_upload, {
+    req(exam_data()) # Ensure exam data is available
+
+    # combine all the questions into one list
+    all_questions <- unlist(lapply(exam_data(), function(section) section$questions), recursive = FALSE)
+
+    # render the dropdowns
+    output$answer_selection_dropdowns <- renderUI({
+      # Generate the UI for each question
+      question_ui <- lapply(seq_along(all_questions), function(i) {
+        question <- all_questions[[i]]
+        question_text <- question$question_text
+    
+        if (question$question_type == "Multiple Choice") {
+          answer_choices <- question$answers
+          num_answers <- length(answer_choices)
+    
+          # Render the question HTML using render_internalQuestion_html
+          rendered_question <- render_internalQuestion_html(
+            question = question,
+            question_number = i,
+            dispFormat = "table", # Use list format
+            showAnswers = FALSE, # Do not show answers
+            shuffleAnswers = FALSE # Do not shuffle answers
+          )
+    
+          # Create the UI structure using fluidRow and column
+          fluidRow(
+            column(
+              width = 2,
+              # Answer selection dropdown
+              selectInput(
+                inputId = paste0("correct_answer_", i),
+                label = paste("Q", i),
+                choices = LETTERS[1:num_answers],
+                # choices = answer_choices,
+                selected = NULL
+              )
+            ),
+            column(
+              width = 10,
+              # Render the question and answer options
+              HTML(paste0("<strong>", i, ". </strong>", rendered_question$html))
+            )
+          )
+        }
+      })
+    
+      # Combine all question UIs into a single tagList
+      do.call(tagList, question_ui)
+    })
+  })
+
+    # Reactive expression to monitor all correct_answer_* inputs
+  all_correct_answers <- reactive({
+    req(exam_data()) # Ensure exam data is available
+  
+    # Get the current exam data
+    current_exam_data <- exam_data()
+  
+    # Collect all correct_answer_* inputs
+    lapply(seq_along(current_exam_data), function(section_index) {
+      section <- current_exam_data[[section_index]]
+      lapply(seq_along(section$questions), function(question_index) {
+        input_id <- paste0("correct_answer_", question_index)
+        input[[input_id]] # Collect the value of each input
+      })
+    })
+  })
+  
+  # Observe changes in any correct_answer_* input
+  observeEvent(all_correct_answers(), {
+    req(exam_data()) # Ensure exam data is available
+  
+    # Get the current exam data
+    current_exam_data <- exam_data()
+  
+    # Iterate through each section and question
+    updated_sections <- lapply(current_exam_data, function(section) {
+      updated_questions <- lapply(seq_along(section$questions), function(index) {
+        question <- section$questions[[index]]
+        if (question$question_type == "Multiple Choice") {
+          # Get the selected letter for this question
+          input_id <- paste0("correct_answer_", index)
+          if (!is.null(input[[input_id]])) {
+            selected_letter <- input[[input_id]]
+  
+            # Map the selected letter to the corresponding answer text
+            selected_answer <- question$answers[which(LETTERS == selected_letter)]
+            question$correct_answers <- selected_answer
+          }
+        }
+        return(question)
+      })
+  
+      # Update the section with the modified questions
+      section$questions <- updated_questions
+      return(section)
+    })
+  
+    # Update the reactive exam_data with the modified sections
+    exam_data(updated_sections)
+  })
 
   observeEvent(
     {
@@ -993,75 +1193,100 @@ server <- function(input, output, session) {
       input$view_format_shuffle
       input$exam_file_upload
       input$exam_title
+      input$show_answers_exam
+      all_correct_answers()
     },
     {
-    req(exam_data()) # Ensure exam data is available
-    # list for the exam versions
-    exam_htmls <- list()
-    # Initialize a list to store the word doc versions
-    exam_word_docs <- list()
-    # Loop through each version
-    for (version in seq_len(input$num_letter_versions_shuffle)) {
-      # print(exam_data())
+      req(exam_data()) # Ensure exam data is available
+      # list for the exam versions
+      exam_htmls <- list()
+      answer_keys <- list()
+      # Initialize a list to store the word doc versions
+      exam_word_docs <- list()
+      # Loop through each version
+      for (version in seq_len(input$num_letter_versions_shuffle)) {
+        # print(exam_data())
 
-      # Select questions for this version
-      shuffleQuestionsIfAll <- if (input$shuffle_questions_exam == "Yes") TRUE else FALSE
-      selected_questions <- select_questions(exam_data(), seed = input$shuffle_seed + version, shuffleWithinSection = shuffleQuestionsIfAll)
+        # Select questions for this version
+        shuffleQuestionsIfAll <- if (input$shuffle_questions_exam == "Yes") TRUE else FALSE
+        selected_questions <- select_questions(exam_data(), seed = input$shuffle_seed + version, shuffleWithinSection = shuffleQuestionsIfAll)
 
-      # store the selected questions in the reactive value
-      exam_versions_selected_questions(selected_questions)
+        # store the selected questions in the reactive value
+        exam_versions_selected_questions(selected_questions)
 
-      # Generate HTML for this version
-      version_html <- generate_questions_html(
-        selected_questions,
-        dispFormat = input$view_format_shuffle,
-        showAnswers = FALSE,
-        shuffleAnswers = input$shuffle_answers_exam == "Yes",
-        thisSeed = as.integer(paste0(input$shuffle_seed, version)),
-        showSectionTitles = FALSE # Hide section titles
-        , sampledQuestions = TRUE
-      )
+        # Generate HTML for this version
+        version_html <- generate_questions_html(
+          selected_questions,
+          dispFormat = input$view_format_shuffle,
+          showAnswers = input$show_answers_exam == "Yes",
+          shuffleAnswers = input$shuffle_answers_exam == "Yes",
+          thisSeed = as.integer(paste0(input$shuffle_seed, version)),
+          showSectionTitles = FALSE # Hide section titles
+          , sampledQuestions = TRUE
+        )
 
-      # Generate the word document for this version
-      word_doc <- generate_quiz_wordDoc(
-        selected_questions = selected_questions,
-        shuffleLetter = LETTERS[version],
-        quizTitle = input$exam_title,
-        totalQs = sum(sapply(selected_questions, function(section) length(section$sampled_questions))),
-        seed = as.integer(paste0(input$shuffle_seed, version)),
-        shuffleAnswers = input$shuffle_answers_exam == "Yes",
-      )
+        # Generate the word document for this version
+        word_doc <- generate_quiz_wordDoc(
+          selected_questions = selected_questions,
+          shuffleLetter = LETTERS[version],
+          quizTitle = input$exam_title,
+          totalQs = sum(sapply(selected_questions, function(section) length(section$sampled_questions))),
+          seed = as.integer(paste0(input$shuffle_seed, version)),
+          shuffleAnswers = input$shuffle_answers_exam == "Yes",
+        )
 
-      # Store the HTML in the list
-      versionName <- LETTERS[version]
-      exam_htmls[[versionName]] <- version_html$questions
-      # Store the word doc in the list
-      exam_word_docs[[versionName]] <- word_doc
+        # Store the HTML in the list
+        versionName <- LETTERS[version]
+        exam_htmls[[versionName]] <- version_html$questions
+        # Store the word doc in the list
+        exam_word_docs[[versionName]] <- word_doc
+        # Store the answer key in the list
+        answer_keys[[versionName]] <- version_html$answers
+      }
+
+      # Update the reactive value
+      exam_versions_html(exam_htmls)
+      exam_versions_answer_keys(answer_keys)
+      exam_versions_word(exam_word_docs)
+
+      # Add options to the selectInput for exam versions
+      updateSelectInput(session, "exam_version", choices = names(exam_htmls), selected = LETTERS[1])
+
+      # display the selected version as HTML
+      output$shuffled_exam_preview <- renderUI({
+        # Get the selected version
+        selected_version <- input$exam_version
+
+        # Construct the key for the selected version
+        version_key <- selected_version
+
+        # Get the HTML for the selected version
+        version_html <- exam_htmls[[version_key]]
+
+        req(version_html) # Ensure the HTML exists
+
+        # Render the HTML
+        HTML(version_html)
+      })
     }
+  )
 
-    # Update the reactive value
-    exam_versions_html(exam_htmls)
-    exam_versions_word(exam_word_docs)
+  # Render the answer key table
+  output$shuffled_exam_answer_key_table <- renderTable({
+    req(exam_versions_answer_keys()) # Ensure answer keys are available
 
-    # Add options to the selectInput for exam versions
-    updateSelectInput(session, "exam_version", choices = names(exam_htmls), selected = LETTERS[1])
+    # Get the selected version and letter
+    version_key <- input$exam_version
 
-    # display the selected version as HTML
-    output$shuffled_exam_preview <- renderUI({
-      # Get the selected version
-      selected_version <- input$exam_version
+    # Get the answer key for the selected version/letter
+    answer_key <- exam_versions_answer_keys()[[version_key]]
 
-      # Construct the key for the selected version
-      version_key <- selected_version
+    req(answer_key) # Ensure the answer key exists
 
-      # Get the HTML for the selected version
-      version_html <- exam_htmls[[version_key]]
-
-      req(version_html) # Ensure the HTML exists
-
-      # Render the HTML
-      HTML(version_html)
-    })
+    answer_key %>%
+      mutate(
+        questionNum = as.integer(questionNum)
+      )
   })
 
   # Download handler for saving the shuffled exam as a Word document
@@ -1086,22 +1311,22 @@ server <- function(input, output, session) {
     }
   )
 
-    output$download_shuffled_exam_html <- downloadHandler(
+  output$download_shuffled_exam_html <- downloadHandler(
     filename = function() {
       # Get the selected version
       selected_version <- input$exam_version
-  
+
       # Construct the filename
       paste0(input$exam_file_name, "_", selected_version, ".html")
     },
     content = function(file) {
       # Get the selected version
       selected_version <- input$exam_version
-  
+
       # Get the HTML for the selected version
       version_html <- exam_versions_html()[[selected_version]]
       req(version_html) # Ensure the HTML exists
-  
+
       # Generate the styled HTML using the reusable function
       styled_html <- generate_styled_html(
         version_html = version_html,
@@ -1118,9 +1343,37 @@ server <- function(input, output, session) {
         letter = selected_version,
         add_biorender_note = input$biorender_note_shuffle == "Yes"
       )
-  
+
       # Write the styled HTML content to the file
       writeLines(styled_html, file)
+    }
+  )
+
+    # Download handler for saving the answer key as CSV
+  output$download_shuffled_keys <- downloadHandler(
+    filename = function() {
+      # Get the quiz title, version, and letter
+      quiz_title <- input$exam_file_name
+
+      # Construct the filename
+      paste0(quiz_title, "_answerKeys.csv")
+    },
+    content = function(file) {
+      # get all answer keys
+      answer_keys <- exam_versions_answer_keys()
+
+      # new row for each version and letter, add column for version and letter
+      answer_key <- do.call(rbind, lapply(names(answer_keys), function(version_letter) {
+        version <- version_letter[1]
+        data <- answer_keys[[version_letter]]
+        data$letter <- version
+        return(data)
+      }))
+
+      req(answer_key) # Ensure the answer key exists
+
+      # Write the answer key to a CSV file
+      write.csv(answer_key, file, row.names = FALSE)
     }
   )
 }
