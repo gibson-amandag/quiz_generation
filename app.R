@@ -46,6 +46,18 @@ ui <- navbarPage(
           "Original Doc",
           fluidRow(
             column(
+              4,
+              textAreaInput(
+                "answer_key_paste",
+                "Paste Answer Key:",
+                placeholder = "Paste the answer key here, with each question on its own row.",
+                rows = 5,
+                width = "100%"
+              )
+            )
+          ),
+          fluidRow(
+            column(
               12,
               uiOutput("answer_selection_dropdowns")
             )
@@ -1014,6 +1026,47 @@ server <- function(input, output, session) {
       exam_data(exam_data)
     }
   )
+
+  observeEvent(input$answer_key_paste, {
+    req(exam_data()) # Ensure exam data is available
+  
+    # Get the current exam data
+    current_exam_data <- exam_data()
+  
+    # Split the input into lines
+    answer_lines <- unlist(strsplit(input$answer_key_paste, "\n"))
+  
+    # Iterate through each section and question
+    updated_sections <- lapply(current_exam_data, function(section) {
+      updated_questions <- lapply(seq_along(section$questions), function(index) {
+        question <- section$questions[[index]]
+        if (question$question_type == "Multiple Choice") {
+          # Get the selected letter for this question from the pasted answer key
+          selected_letter <- answer_lines[index]
+          upper_case <- toupper(selected_letter)
+          choices <- LETTERS[1:length(question$answers)]
+          # check if the selected letter is in the choices
+          if (upper_case %in% choices){
+            # Dynamically update the dropdown selection
+            updateSelectInput(
+              session,
+              inputId = paste0("correct_answer_", index),
+              selected = upper_case
+            )
+          }
+        }
+        return(question)
+      })
+  
+      # Update the section with the modified questions
+      section$questions <- updated_questions
+      return(section)
+    })
+  
+    # Update the reactive exam_data with the modified sections
+    exam_data(updated_sections)
+  })
+
 
   observeEvent(input$exam_file_upload, {
     req(exam_data()) # Ensure exam data is available
