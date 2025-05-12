@@ -129,13 +129,23 @@ ui <- navbarPage(
             column(
               4,
               downloadButton("download_shuffled_exam", "Download Shuffled Exam - Word"),
-              downloadButton("download_shuffled_exam_html", "Download Shuffled Exam - HTML")
+              downloadButton("download_shuffled_exam_html", "Download Shuffled Exam - HTML"),
+              downloadButton(
+                        "download_shuffled_keys",
+                        "Download All Answer Keys"
+                      )
             )
           ),
           fluidRow(
             column(
               12,
+              class = "col-lg-8",
               htmlOutput("shuffled_exam_preview")
+            ),
+            column(
+              12,
+              class = "col-lg-4",
+              tableOutput("shuffled_exam_answer_key_table")
             )
           )
         )
@@ -999,6 +1009,8 @@ server <- function(input, output, session) {
   exam_versions_selected_questions <- reactiveVal(NULL)
   # reactive value to store exam versions HTML
   exam_versions_html <- reactiveVal(NULL)
+  # reactive value to store exam versions answer keys
+  exam_versions_answer_keys <- reactiveVal(NULL)
   # reactive value to store exam versions word
   exam_versions_word <- reactiveVal(NULL)
 
@@ -1188,6 +1200,7 @@ server <- function(input, output, session) {
       req(exam_data()) # Ensure exam data is available
       # list for the exam versions
       exam_htmls <- list()
+      answer_keys <- list()
       # Initialize a list to store the word doc versions
       exam_word_docs <- list()
       # Loop through each version
@@ -1227,10 +1240,13 @@ server <- function(input, output, session) {
         exam_htmls[[versionName]] <- version_html$questions
         # Store the word doc in the list
         exam_word_docs[[versionName]] <- word_doc
+        # Store the answer key in the list
+        answer_keys[[versionName]] <- version_html$answers
       }
 
       # Update the reactive value
       exam_versions_html(exam_htmls)
+      exam_versions_answer_keys(answer_keys)
       exam_versions_word(exam_word_docs)
 
       # Add options to the selectInput for exam versions
@@ -1254,6 +1270,24 @@ server <- function(input, output, session) {
       })
     }
   )
+
+  # Render the answer key table
+  output$shuffled_exam_answer_key_table <- renderTable({
+    req(exam_versions_answer_keys()) # Ensure answer keys are available
+
+    # Get the selected version and letter
+    version_key <- input$exam_version
+
+    # Get the answer key for the selected version/letter
+    answer_key <- exam_versions_answer_keys()[[version_key]]
+
+    req(answer_key) # Ensure the answer key exists
+
+    answer_key %>%
+      mutate(
+        questionNum = as.integer(questionNum)
+      )
+  })
 
   # Download handler for saving the shuffled exam as a Word document
   output$download_shuffled_exam <- downloadHandler(
@@ -1312,6 +1346,34 @@ server <- function(input, output, session) {
 
       # Write the styled HTML content to the file
       writeLines(styled_html, file)
+    }
+  )
+
+    # Download handler for saving the answer key as CSV
+  output$download_shuffled_keys <- downloadHandler(
+    filename = function() {
+      # Get the quiz title, version, and letter
+      quiz_title <- input$exam_file_name
+
+      # Construct the filename
+      paste0(quiz_title, "_answerKeys.csv")
+    },
+    content = function(file) {
+      # get all answer keys
+      answer_keys <- exam_versions_answer_keys()
+
+      # new row for each version and letter, add column for version and letter
+      answer_key <- do.call(rbind, lapply(names(answer_keys), function(version_letter) {
+        version <- version_letter[1]
+        data <- answer_keys[[version_letter]]
+        data$letter <- version
+        return(data)
+      }))
+
+      req(answer_key) # Ensure the answer key exists
+
+      # Write the answer key to a CSV file
+      write.csv(answer_key, file, row.names = FALSE)
     }
   )
 }
