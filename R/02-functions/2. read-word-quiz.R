@@ -105,6 +105,11 @@ read_quiz_from_word <- function(file_path) {
     # Filter questions for the current section
     section_questions <- question_stems %>% filter(sectionNum == section$sectionNum)
 
+    # if no rows in section_questions, go to next section
+    if (nrow(section_questions) == 0) {
+      next
+    }
+
     # Loop through each question in the section
     for (j in 1:nrow(section_questions)) {
       question <- section_questions[j, ]
