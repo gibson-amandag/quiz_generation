@@ -342,7 +342,7 @@ ui <- navbarPage(
         column(
           12,
           tableOutput("processed_questions_table"),
-          actionButton("save_d2l_csvs", "Save D2L CSVs to output folder"),
+        #   actionButton("save_d2l_csvs", "Save D2L CSVs to output folder"),
           downloadButton("download_d2l_file", "Specify D2L CSV save location")
         )
       ),
