@@ -5,7 +5,11 @@ select_questions <- function(sections, seed = 123, shuffleWithinSection = FALSE)
 
   selected_questions <- lapply(sections, function(section) {
     # Extract the number of questions to select
-    num_items <- section$num_items
+    num_items <- if (!is.null(section$num_items)) {
+      section$num_items
+    } else {
+      length(section$questions)
+    }
 
     # Extract all questions from the section
     questions <- section$questions

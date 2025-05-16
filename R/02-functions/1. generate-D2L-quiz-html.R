@@ -443,7 +443,11 @@ generate_styled_html <- function(version_html, css_file, template_file, quiz_tit
   css_content <- readLines(css_file)
 
   # Replace {{version}} with the letter
-  css_content <- gsub("\\{\\{version\\}\\}", letter, css_content)
+  if(is.null(letter)){
+    css_content <- gsub("\\{\\{version\\}\\}", "", css_content)
+  } else {
+    css_content <- gsub("\\{\\{version\\}\\}", letter, css_content)
+  }
 
   # Optionally remove the biorender note
   if (!add_biorender_note) {
@@ -461,8 +465,10 @@ generate_styled_html <- function(version_html, css_file, template_file, quiz_tit
   # Replace {{quiz_title}} with the actual quiz title
   if(!is.null(version)){
     print_title <- paste0(quiz_title, " - ", version, letter)
-  } else {
+  } else if(!is.null(letter)){
     print_title <- paste0(quiz_title, " - ", letter)
+  } else{
+    print_title <- quiz_title
   }
   body_content <- gsub("\\{\\{quiz_title\\}\\}", print_title, body_content)
 

@@ -33,12 +33,12 @@ ui <- navbarPage(
         column(
           4,
           # view
-              radioButtons(
-                "view_format_shuffle",
-                "Display format:",
-                choices = c("List" = "list", "Table" = "table"),
-                selected = "table"
-              )
+          radioButtons(
+            "view_format_shuffle",
+            "Display format:",
+            choices = c("List" = "list", "Table" = "table"),
+            selected = "table"
+          )
         )
       ),
       tabsetPanel(
@@ -131,9 +131,9 @@ ui <- navbarPage(
               downloadButton("download_shuffled_exam", "Download Shuffled Exam - Word"),
               downloadButton("download_shuffled_exam_html", "Download Shuffled Exam - HTML"),
               downloadButton(
-                        "download_shuffled_keys",
-                        "Download All Answer Keys"
-                      )
+                "download_shuffled_keys",
+                "Download All Answer Keys"
+              )
             )
           ),
           fluidRow(
@@ -404,6 +404,40 @@ ui <- navbarPage(
           12,
           # Display the quiz as HTML
           htmlOutput("quiz_html_output")
+        )
+      )
+    )
+  ),
+
+  # Add a new tab for "Quiz Library"
+  tabPanel(
+    "Quiz Library",
+    fluidPage(
+      titlePanel("Quiz Library"),
+      fluidRow(
+        column(
+          4,
+          fileInput("quiz_library_file", "Upload Question Database (.xml):", accept = c(".xml")),
+          numericInput("quiz_library_seed", "Set Seed:", value = 123, min = 1)
+        ),
+        column(
+          4,
+          selectInput("quiz_library_outer_section", "Select Outer Section:", choices = NULL),
+          selectInput("quiz_library_subsection", "Select Subsection:", choices = NULL)
+        ),
+        column(
+          4,
+          radioButtons("quiz_library_view_format", "Display Format:", choices = c("Table" = "table", "List" = "list"), selected = "table"),
+          checkboxInput("quiz_library_shuffle_answers", "Shuffle Answers", value = TRUE),
+          checkboxInput("quiz_library_show_answers", "Show Answers", value = FALSE),
+          downloadButton("quiz_library_download_html", "Export as HTML"),
+          downloadButton("quiz_library_download_word", "Export as Word")
+        )
+      ),
+      fluidRow(
+        column(
+          12,
+          htmlOutput("quiz_library_questions_output")
         )
       )
     )
@@ -758,6 +792,12 @@ server <- function(input, output, session) {
         shuffleQuestionsIfAll <- if (input$shuffle_questions == "Yes") TRUE else FALSE
         selected_questions <- select_questions(quiz_data()$sections, seed = input$seed + version, shuffleWithinSection = shuffleQuestionsIfAll)
 
+        # print if selected questions are empty
+        if (length(selected_questions) == 0) {
+          print("No questions selected")
+          # return()
+        }
+
         # Loop through each letter version
         for (letterNum in seq_len(input$num_letter_versions)) {
           # Determine the display format for this version/letterNum
@@ -1041,13 +1081,13 @@ server <- function(input, output, session) {
 
   observeEvent(input$answer_key_paste, {
     req(exam_data()) # Ensure exam data is available
-  
+
     # Get the current exam data
     current_exam_data <- exam_data()
-  
+
     # Split the input into lines
     answer_lines <- unlist(strsplit(input$answer_key_paste, "\n"))
-  
+
     # Iterate through each section and question
     updated_sections <- lapply(current_exam_data, function(section) {
       updated_questions <- lapply(seq_along(section$questions), function(index) {
@@ -1058,7 +1098,7 @@ server <- function(input, output, session) {
           upper_case <- toupper(selected_letter)
           choices <- LETTERS[1:length(question$answers)]
           # check if the selected letter is in the choices
-          if (upper_case %in% choices){
+          if (upper_case %in% choices) {
             # Dynamically update the dropdown selection
             updateSelectInput(
               session,
@@ -1069,12 +1109,12 @@ server <- function(input, output, session) {
         }
         return(question)
       })
-  
+
       # Update the section with the modified questions
       section$questions <- updated_questions
       return(section)
     })
-  
+
     # Update the reactive exam_data with the modified sections
     exam_data(updated_sections)
   })
@@ -1092,11 +1132,11 @@ server <- function(input, output, session) {
       question_ui <- lapply(seq_along(all_questions), function(i) {
         question <- all_questions[[i]]
         question_text <- question$question_text
-    
+
         if (question$question_type == "Multiple Choice") {
           answer_choices <- question$answers
           num_answers <- length(answer_choices)
-    
+
           # Render the question HTML using render_internalQuestion_html
           rendered_question <- render_internalQuestion_html(
             question = question,
@@ -1105,7 +1145,7 @@ server <- function(input, output, session) {
             showAnswers = FALSE, # Do not show answers
             shuffleAnswers = FALSE # Do not shuffle answers
           )
-    
+
           # Create the UI structure using fluidRow and column
           fluidRow(
             column(
@@ -1127,19 +1167,19 @@ server <- function(input, output, session) {
           )
         }
       })
-    
+
       # Combine all question UIs into a single tagList
       do.call(tagList, question_ui)
     })
   })
 
-    # Reactive expression to monitor all correct_answer_* inputs
+  # Reactive expression to monitor all correct_answer_* inputs
   all_correct_answers <- reactive({
     req(exam_data()) # Ensure exam data is available
-  
+
     # Get the current exam data
     current_exam_data <- exam_data()
-  
+
     # Collect all correct_answer_* inputs
     lapply(seq_along(current_exam_data), function(section_index) {
       section <- current_exam_data[[section_index]]
@@ -1149,14 +1189,14 @@ server <- function(input, output, session) {
       })
     })
   })
-  
+
   # Observe changes in any correct_answer_* input
   observeEvent(all_correct_answers(), {
     req(exam_data()) # Ensure exam data is available
-  
+
     # Get the current exam data
     current_exam_data <- exam_data()
-  
+
     # Iterate through each section and question
     updated_sections <- lapply(current_exam_data, function(section) {
       updated_questions <- lapply(seq_along(section$questions), function(index) {
@@ -1166,7 +1206,7 @@ server <- function(input, output, session) {
           input_id <- paste0("correct_answer_", index)
           if (!is.null(input[[input_id]])) {
             selected_letter <- input[[input_id]]
-  
+
             # Map the selected letter to the corresponding answer text
             selected_answer <- question$answers[which(LETTERS == selected_letter)]
             question$correct_answers <- selected_answer
@@ -1174,12 +1214,12 @@ server <- function(input, output, session) {
         }
         return(question)
       })
-  
+
       # Update the section with the modified questions
       section$questions <- updated_questions
       return(section)
     })
-  
+
     # Update the reactive exam_data with the modified sections
     exam_data(updated_sections)
   })
@@ -1349,7 +1389,7 @@ server <- function(input, output, session) {
     }
   )
 
-    # Download handler for saving the answer key as CSV
+  # Download handler for saving the answer key as CSV
   output$download_shuffled_keys <- downloadHandler(
     filename = function() {
       # Get the quiz title, version, and letter
@@ -1374,6 +1414,154 @@ server <- function(input, output, session) {
 
       # Write the answer key to a CSV file
       write.csv(answer_key, file, row.names = FALSE)
+    }
+  )
+
+  # Database viewing --------
+
+  # Reactive value for database data
+  database_data <- reactiveVal(NULL)
+  # Reactive value for database questions HTML
+  database_questions_html <- reactiveVal(NULL)
+  # Reactive value for database questions
+  database_questions <- reactiveVal(NULL)
+
+  # Observe file upload and parse the XML
+  observeEvent(input$quiz_library_file, {
+    req(input$quiz_library_file)
+
+    # Parse the database file
+    parsed_data <- parse_questiondb(input$quiz_library_file$datapath)
+    database_data(parsed_data)
+
+    # Populate outer section dropdown
+    outer_sections <- c(sapply(parsed_data$sections, function(section) section$section_title), "No Section")
+    updateSelectInput(session, "quiz_library_outer_section", choices = outer_sections)
+  })
+
+  # Observe outer section selection and populate subsections
+  observeEvent(input$quiz_library_outer_section, {
+    req(database_data())
+    selected_outer_section <- input$quiz_library_outer_section
+
+    if (selected_outer_section == "No Section") {
+      updateSelectInput(session, "quiz_library_subsection", choices = NULL)
+    } else {
+      outer_section <- database_data()$sections[[which(sapply(database_data()$sections, function(section) section$section_title == selected_outer_section))]]
+      subsections <- c("Show All", sapply(outer_section$nested_sections, function(subsection) subsection$section_title))
+      updateSelectInput(session, "quiz_library_subsection", choices = subsections)
+    }
+  })
+
+  # Render questions based on selected section and subsection
+  output$quiz_library_questions_output <- renderUI({
+    req(database_data()) # Ensure database data is available
+    selected_outer_section <- input$quiz_library_outer_section
+    selected_subsection <- input$quiz_library_subsection
+
+    # Initialize questions_to_display
+    questions_to_display <- NULL
+
+    if (selected_outer_section == "No Section") {
+      # Display unsectioned questions as a single section
+      questions_to_display <- list(
+        list(
+          section_title = "Uncategorized",
+          questions = database_data()$unsectioned_questions
+        )
+      )
+    } else {
+      # Find the matching outer section
+      outer_section_index <- which(sapply(database_data()$sections, function(section) {
+        tolower(trimws(section$section_title)) == tolower(trimws(selected_outer_section))
+      }))
+      if (length(outer_section_index) > 0) {
+        outer_section <- database_data()$sections[[outer_section_index]]
+
+        if (selected_subsection == "Show All") {
+          # Flatten the entire outer section, including nested subsections
+          questions_to_display <- flatten_sections(outer_section)
+        } else {
+          # Find the matching subsection
+          subsection_index <- which(sapply(outer_section$nested_sections, function(subsection) {
+            tolower(trimws(subsection$section_title)) == tolower(trimws(selected_subsection))
+          }))
+          if (length(subsection_index) > 0) {
+            subsection <- outer_section$nested_sections[[subsection_index]]
+            # Flatten the selected subsection
+            questions_to_display <- flatten_sections(subsection)
+          }
+        }
+      }
+    }
+
+    # If no questions to display, return a message
+    if (is.null(questions_to_display) || length(questions_to_display) == 0) {
+      # No questions found for the selected section/subsection
+      database_questions_html(NULL)
+      database_questions(NULL)
+      return(HTML("<p>No questions available for the selected section/subsection.</p>"))
+    }
+
+    # Generate HTML for the questions
+    html_content <- generate_questions_html(
+      questions_to_display,
+      dispFormat = input$quiz_library_view_format,
+      showAnswers = input$quiz_library_show_answers,
+      shuffleAnswers = input$quiz_library_shuffle_answers,
+      thisSeed = input$quiz_library_seed
+    )
+
+    # Store the HTML content in the reactive value
+    database_questions_html(html_content$questions)
+    database_questions(questions_to_display)
+
+    HTML(html_content$questions)
+  })
+
+  # Export currently displayed questions
+  output$quiz_library_download_html <- downloadHandler(
+    filename = function() {
+      paste0("quiz_library_", Sys.Date(), ".html")
+    },
+    content = function(file) {
+      # require the HTML content
+      req(database_questions_html())
+      html_content <- database_questions_html()
+      req(html_content) # Ensure the HTML content exists
+
+      # Generate the styled HTML using the reusable function
+      styled_html <- generate_styled_html(
+        version_html = html_content,
+        css_file = "www/styles.css",
+        template_file = "www/basicTemplate.html",
+        quiz_title = "Question Library",
+        version = NULL,
+        letter = NULL,
+        add_biorender_note = FALSE
+      )
+      writeLines(styled_html, file)
+    }
+  )
+
+  output$quiz_library_download_word <- downloadHandler(
+    filename = function() {
+      paste0("quiz_library_", Sys.Date(), ".docx")
+    },
+    content = function(file) {
+      # require the questions
+      req(database_questions())
+      questions <- database_questions()
+      req(questions) # Ensure the questions exist
+      # Use existing logic to generate Word document
+      word_doc <- generate_quiz_wordDoc(
+        selected_questions = select_questions(questions, seed = input$quiz_library_seed, shuffleWithinSection = FALSE),
+        shuffleLetter = "A",
+        quizTitle = "Quiz Library",
+        seed = input$quiz_library_seed,
+        shuffleAnswers = input$quiz_library_shuffle_answers
+      )
+      print(word_doc, target = file)
     }
   )
 }
