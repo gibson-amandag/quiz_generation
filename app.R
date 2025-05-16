@@ -428,6 +428,7 @@ ui <- navbarPage(
         column(
           4,
           radioButtons("quiz_library_view_format", "Display Format:", choices = c("Table" = "table", "List" = "list"), selected = "table"),
+          checkboxInput("quiz_library_shuffle_answers", "Shuffle Answers", value = TRUE),
           checkboxInput("quiz_library_show_answers", "Show Answers", value = FALSE),
           downloadButton("quiz_library_download_html", "Export as HTML"),
           downloadButton("quiz_library_download_word", "Export as Word")
@@ -1496,6 +1497,9 @@ server <- function(input, output, session) {
 
     # If no questions to display, return a message
     if (is.null(questions_to_display) || length(questions_to_display) == 0) {
+      # No questions found for the selected section/subsection
+      database_questions_html(NULL)
+      database_questions(NULL)
       return(HTML("<p>No questions available for the selected section/subsection.</p>"))
     }
 
@@ -1503,36 +1507,63 @@ server <- function(input, output, session) {
     html_content <- generate_questions_html(
       questions_to_display,
       dispFormat = input$quiz_library_view_format,
-      showAnswers = input$quiz_library_show_answers
+      showAnswers = input$quiz_library_show_answers,
+      shuffleAnswers = input$quiz_library_shuffle_answers,
+      thisSeed = input$quiz_library_seed
     )
+
+    # Store the HTML content in the reactive value
+    database_questions_html(html_content$questions)
+    database_questions(questions_to_display)
 
     HTML(html_content$questions)
   })
 
-  # # Export currently displayed questions
-  # output$quiz_library_download_html <- downloadHandler(
-  #   filename = function() {
-  #     paste0("quiz_library_", Sys.Date(), ".html")
-  #   },
-  #   content = function(file) {
-  #     html_content <- output$quiz_library_questions_output()
-  #     writeLines(html_content, file)
-  #   }
-  # )
+  # Export currently displayed questions
+  output$quiz_library_download_html <- downloadHandler(
+    filename = function() {
+      paste0("quiz_library_", Sys.Date(), ".html")
+    },
+    content = function(file) {
+      # require the HTML content
+      req(database_questions_html())
+      html_content <- database_questions_html()
+      req(html_content) # Ensure the HTML content exists
 
-  # output$quiz_library_download_word <- downloadHandler(
-  #   filename = function() {
-  #     paste0("quiz_library_", Sys.Date(), ".docx")
-  #   },
-  #   content = function(file) {
-  #     # Use existing logic to generate Word document
-  #     word_doc <- generate_quiz_wordDoc(
-  #       selected_questions = output$quiz_library_questions_output(),
-  #       quizTitle = "Quiz Library"
-  #     )
-  #     print(word_doc, target = file)
-  #   }
-  # )
+      # Generate the styled HTML using the reusable function
+      styled_html <- generate_styled_html(
+        version_html = html_content,
+        css_file = "www/styles.css",
+        template_file = "www/basicTemplate.html",
+        quiz_title = "Question Library",
+        version = NULL,
+        letter = NULL,
+        add_biorender_note = FALSE
+      )
+      writeLines(styled_html, file)
+    }
+  )
+
+  output$quiz_library_download_word <- downloadHandler(
+    filename = function() {
+      paste0("quiz_library_", Sys.Date(), ".docx")
+    },
+    content = function(file) {
+      # require the questions
+      req(database_questions())
+      questions <- database_questions()
+      req(questions) # Ensure the questions exist
+      # Use existing logic to generate Word document
+      word_doc <- generate_quiz_wordDoc(
+        selected_questions = select_questions(questions, seed = input$quiz_library_seed, shuffleWithinSection = FALSE),
+        shuffleLetter = "A",
+        quizTitle = "Quiz Library",
+        seed = input$quiz_library_seed,
+        shuffleAnswers = input$quiz_library_shuffle_answers
+      )
+      print(word_doc, target = file)
+    }
+  )
 }
 
 # Run the application
