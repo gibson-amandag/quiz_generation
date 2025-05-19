@@ -187,6 +187,21 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
         }
         # Check if any answer includes "A and B," "B and C," or "A and C"
         contains_combined_answers <- any(grepl("\\b(A and B|B and C|A and C)\\b", question$answers, ignore.case = TRUE))
+
+        if(!contains_combined_answers){
+            contains_combined_answers <- any(grepl("\\b(A\\) and B\\)|B\\) and C\\)|A\\) and C\\))\\b", question$answers, ignore.case = TRUE))
+        }
+
+        # check if options are letters in order
+        # Check if the answers are sequential letters (A, B, C, D, ...)
+        is_sequential_letters <- all(
+          question$answers %in% LETTERS[1:length(question$answers)]
+        )
+
+        # Disable shuffling if the answers are sequential letters
+        if (is_sequential_letters) {
+          shuffleAnswers <- FALSE
+        }
         
         # Disable shuffling if such answers exist
         if (contains_combined_answers) {
