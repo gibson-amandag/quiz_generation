@@ -1522,7 +1522,11 @@ server <- function(input, output, session) {
   # Export currently displayed questions
   output$quiz_library_download_html <- downloadHandler(
     filename = function() {
-      paste0("quiz_library_", Sys.Date(), ".html")
+      selected_outer_section <- input$quiz_library_outer_section
+      if(is.null(selected_outer_section) || selected_outer_section == "") {
+        selected_outer_section <- ""
+      }
+      paste0("quiz_library_", selected_outer_section, ".html")
     },
     content = function(file) {
       # require the HTML content
@@ -1530,12 +1534,17 @@ server <- function(input, output, session) {
       html_content <- database_questions_html()
       req(html_content) # Ensure the HTML content exists
 
+      selected_outer_section <- input$quiz_library_outer_section
+      if(is.null(selected_outer_section) || selected_outer_section == "") {
+        selected_outer_section <- "Question Library"
+      }
+
       # Generate the styled HTML using the reusable function
       styled_html <- generate_styled_html(
         version_html = html_content,
         css_file = "www/styles.css",
         template_file = "www/basicTemplate.html",
-        quiz_title = "Question Library",
+        quiz_title = selected_outer_section,
         version = NULL,
         letter = NULL,
         add_biorender_note = FALSE
@@ -1546,18 +1555,29 @@ server <- function(input, output, session) {
 
   output$quiz_library_download_word <- downloadHandler(
     filename = function() {
-      paste0("quiz_library_", Sys.Date(), ".docx")
+      # Get the outer section
+      selected_outer_section <- input$quiz_library_outer_section
+      if(is.null(selected_outer_section) || selected_outer_section == "") {
+        selected_outer_section <- ""
+      }
+      paste0("quiz_library_", selected_outer_section, Sys.Date(), ".docx")
     },
     content = function(file) {
       # require the questions
       req(database_questions())
       questions <- database_questions()
       req(questions) # Ensure the questions exist
+
+      selected_outer_section <- input$quiz_library_outer_section
+      if(is.null(selected_outer_section) || selected_outer_section == "") {
+        selected_outer_section <- "Question Library"
+      }
+
       # Use existing logic to generate Word document
       word_doc <- generate_quiz_wordDoc(
         selected_questions = select_questions(questions, seed = input$quiz_library_seed, shuffleWithinSection = FALSE),
         shuffleLetter = "A",
-        quizTitle = "Quiz Library",
+        quizTitle = selected_outer_section,
         seed = input$quiz_library_seed,
         shuffleAnswers = input$quiz_library_shuffle_answers
       )
