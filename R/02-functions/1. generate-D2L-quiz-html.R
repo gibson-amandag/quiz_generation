@@ -225,7 +225,7 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
 
       if (question$question_type == "Multi-Select") {
         # check if already includes "Select all that apply"
-        if (!grepl("Select all that apply", question_html)) {
+        if (!grepl("Select all that apply", question_html) && !grepl("\\(Select all\\)", question_html)) {
           # Add "Select all that apply" to the question text
           question_html <- paste0(
             question_html, " <em>(Select all that apply)</em>"
@@ -284,13 +284,13 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
         prompt
       })
     
+      is_sequential_letters <- all(
+          sapply(prompts, function(prompt) prompt$prompt) %in% LETTERS[1:length(prompts)]
+      )
+
       # Shuffle choices and prompts if shuffleAnswers is enabled
       if (shuffleAnswers) {
-        print(prompts)
         # check if a, b, c, d, sequentially
-        is_sequential_letters <- all(
-          sapply(prompts, function(prompt) prompt$prompt) %in% LETTERS[1:length(prompts)]
-        )
         if(!is_sequential_letters){
             prompts <- sample(prompts)
         }
@@ -304,7 +304,7 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
       )
     
       # Add the image if it exists
-      if (!is.null(image)) {
+      if (!is.null(image) && !is.na(image) && image != "") {    
         question_html <- paste0(
           question_html,
           "<div style='text-align: center; margin-bottom: 10px;'>",
@@ -343,10 +343,17 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
       # Add prompts to the right column, lettered A, B, C, etc.
       letters <- LETTERS[1:length(prompts)]
       for (i in seq_along(prompts)) {
-        question_html <- paste0(
-          question_html,
-          "<div>", letters[i], ". ", prompts[[i]]$prompt, "</div>"
-        )
+        if(!is_sequential_letters){
+          question_html <- paste0(
+            question_html,
+            "<div>", letters[i], ". ", prompts[[i]]$prompt, "</div>"
+          )
+        } else {
+          question_html <- paste0(
+            question_html,
+            "<div>", prompts[[i]]$prompt, "</div>"
+          )
+        }
       }
     
       question_html <- paste0(
