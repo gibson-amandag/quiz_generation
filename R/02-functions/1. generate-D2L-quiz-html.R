@@ -224,9 +224,13 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
       correct_answer_text <- paste(correct_letter, collapse = ", ")
 
       if (question$question_type == "Multi-Select") {
-        question_html <- paste0(
-          question_html, " <em>(Select all that apply)</em>"
-        )
+        # check if already includes "Select all that apply"
+        if (!grepl("Select all that apply", question_html)) {
+          # Add "Select all that apply" to the question text
+          question_html <- paste0(
+            question_html, " <em>(Select all that apply)</em>"
+          )
+        }
       }
       question_html <- paste0(
         question_html, "<ol type='A'>"
