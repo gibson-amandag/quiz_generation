@@ -267,10 +267,11 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
       list(html = question_html, correct_answer = correct_answer_text)
     },
     "Matching" = {
-      # Extract the choices and prompts
+      # Extract the choices, prompts, and image
       choices <- question$choices
       prompts <- question$prompts
-
+      image <- question$image
+    
       # Remove <p> and </p> tags from choices and prompts
       choices <- lapply(choices, function(choice) {
         choice$choice <- sub("<p>", "", choice$choice)
@@ -282,20 +283,42 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
         prompt$prompt <- sub("</p>", "", prompt$prompt)
         prompt
       })
-
+    
       # Shuffle choices and prompts if shuffleAnswers is enabled
       if (shuffleAnswers) {
+        print(prompts)
+        # check if a, b, c, d, sequentially
+        is_sequential_letters <- all(
+          sapply(prompts, function(prompt) prompt$prompt) %in% LETTERS[1:length(prompts)]
+        )
+        if(!is_sequential_letters){
+            prompts <- sample(prompts)
+        }
         choices <- sample(choices)
-        prompts <- sample(prompts)
       }
-
+    
       # Generate the HTML for the matching question
+      question_html <- paste0(
+        question_html,
+        "<div style='display: flex; flex-direction: column; width: 100%;'>"
+      )
+    
+      # Add the image if it exists
+      if (!is.null(image)) {
+        question_html <- paste0(
+          question_html,
+          "<div style='text-align: center; margin-bottom: 10px;'>",
+          "<img src='", image, "' alt='Matching Question Image' style='max-height: 400px;'>",
+          "</div>"
+        )
+      }
+    
       question_html <- paste0(
         question_html,
         "<div style='display: flex; width: 100%;'>",
         "<div style='width: 50%; padding-right: 10px;'>"
       )
-
+    
       # Add choices to the left column
       for (choice in choices) {
         correctAnswer <- LETTERS[which(sapply(prompts, function(prompt) prompt$prompt_id) == choice$correct_prompt_id)]
@@ -310,13 +333,13 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
           "</div>"
         )
       }
-
+    
       question_html <- paste0(
         question_html,
         "</div>",
         "<div style='width: 50%; padding-left: 10px;'>"
       )
-
+    
       # Add prompts to the right column, lettered A, B, C, etc.
       letters <- LETTERS[1:length(prompts)]
       for (i in seq_along(prompts)) {
@@ -325,13 +348,13 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
           "<div>", letters[i], ". ", prompts[[i]]$prompt, "</div>"
         )
       }
-
+    
       question_html <- paste0(
         question_html,
         "</div>",
         "</div>"
       )
-
+    
       # Generate the correct answer key (letters in the correct order)
       correct_order <- sapply(choices, function(choice) {
         matching_prompt <- Filter(function(prompt) prompt$prompt_id == choice$correct_prompt_id, prompts)
@@ -342,7 +365,7 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
         }
       })
       correct_answer_text <- paste(correct_order, collapse = ", ")
-
+    
       list(html = question_html, correct_answer = correct_answer_text)
     },
     "Ordering" = {

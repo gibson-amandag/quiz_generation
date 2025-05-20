@@ -181,6 +181,10 @@ parse_matching_question <- function(item, ns) {
   question_id <- xml_attr(item, "ident")
   question_text <- xml_text(xml_find_first(item, ".//mattext", ns))
 
+  # Extract the image (if present)
+  matimage_node <- xml_find_first(item, ".//matimage", ns)
+  image_uri <- if (!is.null(matimage_node)) xml_attr(matimage_node, "uri") else NULL
+
   # Extract prompts (right column)
   response_groups <- xml_find_all(item, ".//response_grp", ns)
   prompts <- lapply(response_groups, function(group) {
@@ -239,7 +243,8 @@ parse_matching_question <- function(item, ns) {
     question_text = question_text,
     question_type = "Matching",
     prompts = prompts,
-    choices = choices
+    choices = choices,
+    image = image_uri # Include the image URI
   )
 }
 
