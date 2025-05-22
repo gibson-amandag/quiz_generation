@@ -212,9 +212,10 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
       # Shuffle answers if the option is enabled
       answer_options <- if (shuffleAnswers) sample(question$answers) else question$answers
 
-       # Ensure "All of the above" is at the end
-      if ("All of the above" %in% answer_options) {
-        answer_options <- c(setdiff(answer_options, "All of the above"), "All of the above")
+      # Ensure "All of the above" or "all of the above" is at the end
+      if (any(tolower(answer_options) == "all of the above")) {
+        answer_options <- c(setdiff(answer_options, answer_options[tolower(answer_options) == "all of the above"]), 
+                answer_options[tolower(answer_options) == "all of the above"])
       }
 
       # Determine the correct answer letters
@@ -329,7 +330,7 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
         }
         question_html <- paste0(
           question_html,
-          "<div>", entryLine, " ", choice$choice,
+          "<div style='margin-top: 10px;'>", entryLine, " ", choice$choice,
           "</div>"
         )
       }
@@ -402,7 +403,7 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
 
         question_html <- paste0(
           question_html,
-          "<div>", entryLine, " ", answer, "</div>"
+          "<div style='margin-top: 10px;>", entryLine, " ", answer, "</div>"
         )
       }
       question_html <- paste0(
