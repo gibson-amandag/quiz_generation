@@ -315,9 +315,37 @@ parse_multi_select_question <- function(item, ns) {
     xml_attr(answer, "ident")
   })
 
-  # Extract correct answer identifiers from <respcondition>
-  correct_answers <- xml_find_all(item, ".//respcondition/conditionvar/varequal", ns)
-  correct_answer_idents <- sapply(correct_answers, xml_text)
+  # Determine grading type
+  grading_type <- as.integer(xml_text(xml_find_first(item, ".//d2l_2p0:grading_type", ns)))
+
+  # Initialize correct and incorrect answer identifiers
+  correct_answer_idents <- c()
+  incorrect_answer_idents <- c()
+
+  # Extract <respcondition> blocks
+  respconditions <- xml_find_all(item, ".//respcondition", ns)
+
+  if (grading_type == 0) {
+    # All-or-Nothing Grading (Reverted to original logic)
+    correct_answers <- xml_find_all(item, ".//respcondition/conditionvar/varequal", ns)
+    correct_answer_idents <- sapply(correct_answers, xml_text)
+  } else if (grading_type == 1 || grading_type == 2 || grading_type == 3) {
+    # Right-Minus-Wrong, Correct Selection, or Limited Selection Grading
+    for (respcondition in respconditions) {
+      setvar <- xml_attr(xml_find_first(respcondition, ".//setvar", ns), "varname")
+      varequal <- xml_text(xml_find_first(respcondition, ".//varequal", ns))
+
+      if (!is.null(setvar) && setvar == "D2L_Correct") {
+        correct_answer_idents <- c(correct_answer_idents, varequal)
+      } else if (!is.null(setvar) && setvar == "D2L_Incorrect") {
+        incorrect_answer_idents <- c(incorrect_answer_idents, varequal)
+      }
+    }
+  }
+
+  # Deduplicate identifiers
+  correct_answer_idents <- unique(correct_answer_idents)
+  incorrect_answer_idents <- unique(incorrect_answer_idents)
 
   # Match correct answer identifiers to their texts
   correct_answer_texts <- answer_texts[answer_idents %in% correct_answer_idents]
@@ -327,7 +355,8 @@ parse_multi_select_question <- function(item, ns) {
     question_text = question_text,
     question_type = "Multi-Select",
     answers = answer_texts,
-    correct_answers = correct_answer_texts
+    correct_answers = correct_answer_texts,
+    grading_type = grading_type
   )
 }
 
