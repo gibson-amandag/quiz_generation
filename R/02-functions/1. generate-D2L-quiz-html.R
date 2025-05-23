@@ -389,6 +389,7 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
         question_html,
         "<div style='margin-left: 20px;'>"
       )
+
       for (answer in answer_options) {
         # get the correct order index
         correct_order_index <- which(question$correct_order == answer)
@@ -403,7 +404,7 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
 
         question_html <- paste0(
           question_html,
-          "<div style='margin-top: 10px;>", entryLine, " ", answer, "</div>"
+          "<div style='margin-top: 10px;'>", entryLine, " ", answer, "</div>"
         )
       }
       question_html <- paste0(
