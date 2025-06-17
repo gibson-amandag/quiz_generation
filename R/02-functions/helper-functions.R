@@ -1,5 +1,5 @@
 # Function to randomly select questions from each section
-select_questions <- function(sections, seed = 123, shuffleWithinSection = FALSE) {
+select_questions <- function(sections, seed = 123, shuffleWithinSection = FALSE, shuffleSections = FALSE) {
   set.seed(seed)
   # print(sections)
 
@@ -34,6 +34,10 @@ select_questions <- function(sections, seed = 123, shuffleWithinSection = FALSE)
       sampled_questions = sampled_questions
     )
   })
+
+  if(shuffleSections) {
+    selected_questions <- sample(selected_questions)
+  }
 
   return(selected_questions)
 }

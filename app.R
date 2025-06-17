@@ -278,7 +278,14 @@ ui <- navbarPage(
                       # shuffle if all questions used
                       radioButtons(
                         "shuffle_questions",
-                        "Shuffle Questions:",
+                        "Shuffle questions within sections:",
+                        choices = c("Yes", "No"),
+                        selected = "No"
+                      ),
+                      # shuffle sections
+                      radioButtons(
+                        "shuffle_sections",
+                        "Shuffle sections:",
                         choices = c("Yes", "No"),
                         selected = "No"
                       )
@@ -768,6 +775,7 @@ server <- function(input, output, session) {
       input$num_letter_versions
       input$quiz_file
       input$shuffle_questions
+      input$shuffle_sections
       input$quiz_file_upload
       input$seed
       input$quiz_title
@@ -790,7 +798,8 @@ server <- function(input, output, session) {
       for (version in seq_len(input$num_versions)) {
         # Select questions for this version
         shuffleQuestionsIfAll <- if (input$shuffle_questions == "Yes") TRUE else FALSE
-        selected_questions <- select_questions(quiz_data()$sections, seed = input$seed + version, shuffleWithinSection = shuffleQuestionsIfAll)
+        shuffleSections <- if (input$shuffle_sections == "Yes") TRUE else FALSE
+        selected_questions <- select_questions(quiz_data()$sections, seed = input$seed + version, shuffleWithinSection = shuffleQuestionsIfAll, shuffleSections = shuffleSections)
 
         # print if selected questions are empty
         if (length(selected_questions) == 0) {
