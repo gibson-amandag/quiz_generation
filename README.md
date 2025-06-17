@@ -72,3 +72,26 @@ install.packages(c("shiny", "xml2", "dplyr", "officer", "stringr"))
 ## License
 
 This project is licensed under the MIT License.
+
+# Quiz Tool Application
+
+Welcome to the Quiz Tool! This application helps you manage, shuffle, and export quizzes for educational use. Below you'll find an overview of the main features and links to detailed instructions for each section.
+
+## Main Features
+
+- **Shuffle Word Doc**: Shuffle questions and answers in a Word document and export new versions.
+- **D2L Export to Paper**: Convert D2L quiz XML files into printable formats and generate answer keys.
+- **Word to D2L Import**: Convert Word quizzes into D2L-compatible CSV files for import.
+- **Quiz Library**: Browse and export questions from a question database.
+
+## How to Use
+
+1. Launch the app in RStudio or your browser.
+2. Use the navigation bar at the top to switch between features.
+3. Follow the on-screen instructions or see the docs below for each section:
+   - [Shuffle Word Doc](docs/shuffle_word_doc.md)
+   - [D2L Export to Paper](docs/d2l_export_to_paper.md)
+   - [Word to D2L Import](docs/word_to_d2l_import.md)
+   - [Quiz Library](docs/quiz_library.md)
+
+For troubleshooting or more help, see the documentation in the `docs/` folder.
