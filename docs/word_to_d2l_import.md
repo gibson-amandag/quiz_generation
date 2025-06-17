@@ -19,4 +19,3 @@ The questions will be displayed as HTML for review.
 ## Tips
 - Ensure your Word file follows the expected format for best results.
 - Use the preview to check for parsing errors before exporting.
-- You may add your own screenshots to a documentation folder if desired.

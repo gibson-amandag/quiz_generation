@@ -36,4 +36,3 @@ Toggle to display correct answers in the preview.
 ## Tips
 - Use the preview to check formatting before exporting.
 - Changing the seed or number of versions will generate new shuffles.
-- You may add your own screenshots to a documentation folder if desired.

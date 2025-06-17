@@ -27,4 +27,3 @@ Toggle to shuffle answers or show correct answers.
 
 ## Tips
 - The preview updates automatically as you change filters.
-- You may add your own screenshots to a documentation folder if desired.

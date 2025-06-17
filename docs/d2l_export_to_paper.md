@@ -31,4 +31,3 @@ Generate and preview different versions/letters of the quiz.
 ## Tips
 - Use the preview to check the quiz before exporting.
 - The answer key table updates based on the selected version/letter.
-- You may add your own screenshots to a documentation folder if desired.
