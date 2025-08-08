@@ -23,6 +23,9 @@ read_quiz_from_word <- function(file_path) {
   # Replace apostrophes in the text column
   text_df$text <- gsub("’", "'", text_df$text)
 
+  # Remove blank or whitespace-only lines
+  text_df <- text_df %>% filter(trimws(text) != "")
+
   # Filter section headers (if any)
   section_headers <- text_df %>%
     filter(style_name == "heading 1")
