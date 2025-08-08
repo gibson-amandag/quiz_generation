@@ -57,7 +57,7 @@ generate_questions_html <- function(sections, dispFormat = "list", showAnswers =
     } else {
       sectionQuestions <- section$questions
     }
-
+    
     for (question in sectionQuestions) {
       # Render the question HTML
       rendered_question <- render_question_html(
@@ -69,34 +69,39 @@ generate_questions_html <- function(sections, dispFormat = "list", showAnswers =
       )
 
       questions_html <- paste0(questions_html, rendered_question$html)
-
+    
       # Add the correct answer to the answer key
       correct_letter <- rendered_question$correct_letter
-      if (!is.null(correct_letter) && length(correct_letter) > 0) {
+
+      correct_letter_clean <- gsub("<br/>", "\n", correct_letter)
+      correct_letter_clean <- gsub("&#160;", " ", correct_letter_clean)
+
+      # Clean up correct_letter: remove HTML tags
+      correct_letter_clean <- gsub("<[^>]+>", "", correct_letter_clean)
+    
+      if (!is.null(correct_letter_clean) && length(correct_letter_clean) > 0) {
         if (showSectionTitles) {
-          # Add the section number to the answer key
           answer_key_df <- rbind(
             answer_key_df,
             data.frame(
               questionNum = question_number,
-              correctAnswer = correct_letter,
+              correctAnswer = correct_letter_clean,
               section = sectionNum,
               stringsAsFactors = FALSE
             )
           )
         } else {
-          # Add the question number to the answer key
           answer_key_df <- rbind(
             answer_key_df,
             data.frame(
               questionNum = question_number,
-              correctAnswer = correct_letter,
+              correctAnswer = correct_letter_clean,
               stringsAsFactors = FALSE
             )
           )
         }
       }
-
+    
       question_number <- question_number + 1
     }
 
@@ -160,7 +165,7 @@ render_question_html <- function(question, question_number, dispFormat, showAnsw
   } else if (dispFormat == "table") {
     question_html <- paste0(
       "<tr>",
-      if (showAnswers && !(question$question_type %in% c("Matching", "Ordering"))) paste0("<td class='correct-letter'>", questionInfo$correct_answer, "</td>") else "<td>&nbsp;</td>",
+      if (showAnswers && !(question$question_type %in% c("Matching", "Ordering", "Long Answer"))) paste0("<td class='correct-letter'>", questionInfo$correct_answer, "</td>") else "<td>&nbsp;</td>",
       "<td>",
       "<strong>", question_number, ".</strong> ", question_html,
       "</td></tr>"
@@ -181,15 +186,15 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
     "Multiple Choice" = ,
     "True/False" = ,
     "Multi-Select" = {
-      if(shuffleAnswers){
-        if(question$question_type == "True/False"){
+      if (shuffleAnswers) {
+        if (question$question_type == "True/False") {
           shuffleAnswers <- FALSE
         }
         # Check if any answer includes "A and B," "B and C," or "A and C"
         contains_combined_answers <- any(grepl("\\b(A and B|B and C|A and C)\\b", question$answers, ignore.case = TRUE))
 
-        if(!contains_combined_answers){
-            contains_combined_answers <- any(grepl("\\b(A\\) and B\\)|B\\) and C\\)|A\\) and C\\))\\b", question$answers, ignore.case = TRUE))
+        if (!contains_combined_answers) {
+          contains_combined_answers <- any(grepl("\\b(A\\) and B\\)|B\\) and C\\)|A\\) and C\\))\\b", question$answers, ignore.case = TRUE))
         }
 
         # check if options are letters in order
@@ -202,7 +207,7 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
         if (is_sequential_letters) {
           shuffleAnswers <- FALSE
         }
-        
+
         # Disable shuffling if such answers exist
         if (contains_combined_answers) {
           shuffleAnswers <- FALSE
@@ -214,8 +219,10 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
 
       # Ensure "All of the above" or "all of the above" is at the end
       if (any(tolower(answer_options) == "all of the above")) {
-        answer_options <- c(setdiff(answer_options, answer_options[tolower(answer_options) == "all of the above"]), 
-                answer_options[tolower(answer_options) == "all of the above"])
+        answer_options <- c(
+          setdiff(answer_options, answer_options[tolower(answer_options) == "all of the above"]),
+          answer_options[tolower(answer_options) == "all of the above"]
+        )
       }
 
       # Determine the correct answer letters
@@ -272,7 +279,7 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
       choices <- question$choices
       prompts <- question$prompts
       image <- question$image
-    
+
       # Remove <p> and </p> tags from choices and prompts
       choices <- lapply(choices, function(choice) {
         choice$choice <- sub("<p>", "", choice$choice)
@@ -284,28 +291,28 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
         prompt$prompt <- sub("</p>", "", prompt$prompt)
         prompt
       })
-    
+
       is_sequential_letters <- all(
-          sapply(prompts, function(prompt) prompt$prompt) %in% LETTERS[1:length(prompts)]
+        sapply(prompts, function(prompt) prompt$prompt) %in% LETTERS[1:length(prompts)]
       )
 
       # Shuffle choices and prompts if shuffleAnswers is enabled
       if (shuffleAnswers) {
         # check if a, b, c, d, sequentially
-        if(!is_sequential_letters){
-            prompts <- sample(prompts)
+        if (!is_sequential_letters) {
+          prompts <- sample(prompts)
         }
         choices <- sample(choices)
       }
-    
+
       # Generate the HTML for the matching question
       question_html <- paste0(
         question_html,
         "<div style='display: flex; flex-direction: column; width: 100%;'>"
       )
-    
+
       # Add the image if it exists
-      if (!is.null(image) && !is.na(image) && image != "") {    
+      if (!is.null(image) && !is.na(image) && image != "") {
         question_html <- paste0(
           question_html,
           "<div style='text-align: center; margin-bottom: 10px;'>",
@@ -313,13 +320,13 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
           "</div>"
         )
       }
-    
+
       question_html <- paste0(
         question_html,
         "<div style='display: flex; width: 100%;'>",
         "<div style='width: 50%; padding-right: 10px;'>"
       )
-    
+
       # Add choices to the left column
       for (choice in choices) {
         correctAnswer <- LETTERS[which(sapply(prompts, function(prompt) prompt$prompt_id) == choice$correct_prompt_id)]
@@ -334,17 +341,17 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
           "</div>"
         )
       }
-    
+
       question_html <- paste0(
         question_html,
         "</div>",
         "<div style='width: 50%; padding-left: 10px;'>"
       )
-    
+
       # Add prompts to the right column, lettered A, B, C, etc.
       letters <- LETTERS[1:length(prompts)]
       for (i in seq_along(prompts)) {
-        if(!is_sequential_letters){
+        if (!is_sequential_letters) {
           question_html <- paste0(
             question_html,
             "<div>", letters[i], ". ", prompts[[i]]$prompt, "</div>"
@@ -356,13 +363,13 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
           )
         }
       }
-    
+
       question_html <- paste0(
         question_html,
         "</div>",
         "</div>"
       )
-    
+
       # Generate the correct answer key (letters in the correct order)
       correct_order <- sapply(choices, function(choice) {
         matching_prompt <- Filter(function(prompt) prompt$prompt_id == choice$correct_prompt_id, prompts)
@@ -373,7 +380,7 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
         }
       })
       correct_answer_text <- paste(correct_order, collapse = ", ")
-    
+
       list(html = question_html, correct_answer = correct_answer_text)
     },
     "Ordering" = {
@@ -465,13 +472,31 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
       list(html = question_html, correct_answer = correct_answer_text)
     },
     "Long Answer" = {
-      # Long answer questions typically do not have a correct answer
-      correct_answer_text <- " "
+      # Use the answer key if present, otherwise blank
+      answer_key <- question$answer_key
+      if (!is.null(answer_key) && !is.na(answer_key) && nzchar(answer_key)) {
+        correct_answer_text <- answer_key
+        # Clean up correct answer text
+        correct_answer_text <- sub("<p>", "", correct_answer_text)
+        correct_answer_text <- sub("</p>", "", correct_answer_text)
+      } else {
+        correct_answer_text <- " "
+      }
 
-      question_html <- paste0(
-        question_html,
-        "<p>&nbsp;</p><p>&nbsp;</p><p>&nbsp;</p>"
-      )
+      # If showing answers, display the answer key below the question
+      if (showAnswers && nzchar(correct_answer_text) && correct_answer_text != " ") {
+        question_html <- paste0(
+          question_html,
+          "<div class='correct-answer'>",
+          correct_answer_text,
+          "</div>"
+        )
+      } else {
+        question_html <- paste0(
+          question_html,
+          "<p>&nbsp;</p><p>&nbsp;</p><p>&nbsp;</p>"
+        )
+      }
 
       list(html = question_html, correct_answer = correct_answer_text)
     },
@@ -494,7 +519,7 @@ generate_styled_html <- function(version_html, css_file, template_file, quiz_tit
   css_content <- readLines(css_file)
 
   # Replace {{version}} with the letter
-  if(is.null(letter)){
+  if (is.null(letter)) {
     css_content <- gsub("\\{\\{version\\}\\}", "", css_content)
   } else {
     css_content <- gsub("\\{\\{version\\}\\}", letter, css_content)
@@ -514,11 +539,11 @@ generate_styled_html <- function(version_html, css_file, template_file, quiz_tit
   body_content <- intro_content[body_start:body_end]
 
   # Replace {{quiz_title}} with the actual quiz title
-  if(!is.null(version)){
+  if (!is.null(version)) {
     print_title <- paste0(quiz_title, " - ", version, letter)
-  } else if(!is.null(letter)){
+  } else if (!is.null(letter)) {
     print_title <- paste0(quiz_title, " - ", letter)
-  } else{
+  } else {
     print_title <- quiz_title
   }
   body_content <- gsub("\\{\\{quiz_title\\}\\}", print_title, body_content)

@@ -252,10 +252,15 @@ parse_long_answer_question <- function(item, ns) {
   question_id <- xml_attr(item, "ident")
   question_text <- xml_text(xml_find_first(item, ".//mattext", ns))
 
+  # Extract answer key (if present)
+  answer_key_node <- xml_find_first(item, ".//answer_key//mattext", ns)
+  answer_key <- if (!is.null(answer_key_node)) xml_text(answer_key_node) else NA
+
   list(
     question_id = question_id,
     question_text = question_text,
-    question_type = "Long Answer"
+    question_type = "Long Answer",
+    answer_key = answer_key
   )
 }
 
