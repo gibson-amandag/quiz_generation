@@ -112,7 +112,7 @@ ui <- navbarPage(
               radioButtons(
                 "template_selection_shuffle",
                 "Select Template:",
-                choices = c("Basic", "MC - table", "MC - list"),
+                choices = c("Basic", "MC - table", "MC - list", "Lab - in-class", "Lab - revision"),
                 selected = "Basic"
               )
             ),
@@ -324,7 +324,7 @@ ui <- navbarPage(
                       radioButtons(
                         "template_selection",
                         "Select Template:",
-                        choices = c("Basic", "MC - table", "MC - list"),
+                        choices = c("Basic", "MC - table", "MC - list", "Lab - in-class", "Lab - revision"),
                         selected = "Basic"
                       ),
                       # Add biorender note
@@ -631,6 +631,10 @@ server <- function(input, output, session) {
           "MC-table-template.html"
         } else if (input$template_selection == "MC - list") {
           "MC-list-template.html"
+        } else if (input$template_selection == "Lab - in-class") {
+          "lab-quiz-in-class-template.html"
+        } else if (input$template_selection == "Lab - revision") {
+          "lab-quiz-revision-template.html"
         } else {
           "basicTemplate.html"
         }),
@@ -678,12 +682,16 @@ server <- function(input, output, session) {
           version_html = version_html,
           css_file = "www/styles.css",
           template_file = paste0("www/", if (input$template_selection == "MC - table") {
-            "MC-table-template.html"
-          } else if (input$template_selection == "MC - list") {
-            "MC-list-template.html"
-          } else {
-            "basicTemplate.html"
-          }),
+          "MC-table-template.html"
+        } else if (input$template_selection == "MC - list") {
+          "MC-list-template.html"
+        } else if (input$template_selection == "Lab - in-class") {
+          "lab-quiz-in-class-template.html"
+        } else if (input$template_selection == "Lab - revision") {
+          "lab-quiz-revision-template.html"
+        } else {
+          "basicTemplate.html"
+        }),
           quiz_title = input$file_title,
           version = version,
           letter = letter,
@@ -1380,10 +1388,14 @@ server <- function(input, output, session) {
       styled_html <- generate_styled_html(
         version_html = version_html,
         css_file = "www/styles.css",
-        template_file = paste0("www/", if (input$template_selection_shuffle == "MC - table") {
+        template_file = paste0("www/", if (input$template_selection == "MC - table") {
           "MC-table-template.html"
-        } else if (input$template_selection_shuffle == "MC - list") {
+        } else if (input$template_selection == "MC - list") {
           "MC-list-template.html"
+        } else if (input$template_selection == "Lab - in-class") {
+          "lab-quiz-in-class-template.html"
+        } else if (input$template_selection == "Lab - revision") {
+          "lab-quiz-revision-template.html"
         } else {
           "basicTemplate.html"
         }),
