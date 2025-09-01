@@ -692,7 +692,7 @@ server <- function(input, output, session) {
         } else {
           "basicTemplate.html"
         }),
-          quiz_title = input$file_title,
+          quiz_title = input$quiz_title,
           version = version,
           letter = letter,
           add_biorender_note = input$biorender_note == "Yes"
