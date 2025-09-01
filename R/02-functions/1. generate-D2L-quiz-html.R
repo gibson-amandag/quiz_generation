@@ -75,6 +75,7 @@ generate_questions_html <- function(sections, dispFormat = "list", showAnswers =
 
       correct_letter_clean <- gsub("<br/>", "\n", correct_letter)
       correct_letter_clean <- gsub("&#160;", " ", correct_letter_clean)
+      correct_letter_clean <- gsub("&#39;", "'", correct_letter_clean)
 
       # Clean up correct_letter: remove HTML tags
       correct_letter_clean <- gsub("<[^>]+>", "", correct_letter_clean)
