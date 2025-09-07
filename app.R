@@ -324,7 +324,7 @@ ui <- navbarPage(
                       radioButtons(
                         "template_selection",
                         "Select Template:",
-                        choices = c("Basic", "MC - table", "MC - list", "Lab - in-class", "Lab - revision"),
+                        choices = c("Basic", "MC - table", "MC - list", "MC - table then list", "Lab - in-class", "Lab - revision"),
                         selected = "Basic"
                       ),
                       # Add biorender note
@@ -627,9 +627,9 @@ server <- function(input, output, session) {
       styled_html <- generate_styled_html(
         version_html = version_html,
         css_file = "www/styles.css",
-        template_file = paste0("www/", if (input$template_selection == "MC - table") {
+        template_file = paste0("www/", if (input$template_selection == "MC - table" || (input$template_selection == "MC - table then list" && version == "V1")) {
           "MC-table-template.html"
-        } else if (input$template_selection == "MC - list") {
+        } else if (input$template_selection == "MC - list" || (input$template_selection == "MC - table then list" && version != "V1")) {
           "MC-list-template.html"
         } else if (input$template_selection == "Lab - in-class") {
           "lab-quiz-in-class-template.html"
@@ -681,9 +681,9 @@ server <- function(input, output, session) {
         styled_html <- generate_styled_html(
           version_html = version_html,
           css_file = "www/styles.css",
-          template_file = paste0("www/", if (input$template_selection == "MC - table") {
+          template_file = paste0("www/", if (input$template_selection == "MC - table" || (input$template_selection == "MC - table then list" && version == "V1")) {
           "MC-table-template.html"
-        } else if (input$template_selection == "MC - list") {
+        } else if (input$template_selection == "MC - list" || (input$template_selection == "MC - table then list" && version != "V1")) {
           "MC-list-template.html"
         } else if (input$template_selection == "Lab - in-class") {
           "lab-quiz-in-class-template.html"
