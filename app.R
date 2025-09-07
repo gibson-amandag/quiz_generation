@@ -109,10 +109,10 @@ ui <- navbarPage(
           fluidRow(
             column(
               4,
-              radioButtons(
+              selectInput(
                 "template_selection_shuffle",
                 "Select Template:",
-                choices = c("Basic", "MC - table", "MC - list", "Lab - in-class", "Lab - revision"),
+                choices = c("Basic", "MC - table", "MC - list", "Problem set", "Lab - in-class", "Lab - revision"),
                 selected = "Basic"
               )
             ),
@@ -258,6 +258,37 @@ ui <- navbarPage(
               "View Quiz",
               fluidRow(
                 column(
+                  4,
+                  actionButton(
+                    "mc_button_set",
+                    "Set MC",
+                    width = "100%"
+                  )
+                ),
+                column(
+                  4,
+                  actionButton(
+                    "ps_button_set",
+                    "Set Problem Set",
+                    width = "100%"
+                  )
+                ),
+                column(
+                  4,
+                  actionButton(
+                    "lab_button_set",
+                    "Set Lab",
+                    width = "100%"
+                  ),
+                  actionButton(
+                    "lab_rev_button_set",
+                    "Set Lab - Revision",
+                    width = "100%"
+                  )
+                )
+              ),
+              fluidRow(
+                column(
                   12,
                   # Full-width display for quiz
                   fluidRow(
@@ -315,16 +346,16 @@ ui <- navbarPage(
                           "All as List" = "list",
                           "First as Table, Rest as List" = "mixed"
                         ),
-                        selected = "table"
+                        selected = "list"
                       )
                     ),
                     column(
                       4,
                       # Save Options
-                      radioButtons(
+                      selectInput(
                         "template_selection",
                         "Select Template:",
-                        choices = c("Basic", "MC - table", "MC - list", "MC - table then list", "Lab - in-class", "Lab - revision"),
+                        choices = c("Basic", "MC - table", "MC - list", "MC - table then list", "Problem set", "Lab - in-class", "Lab - revision"),
                         selected = "Basic"
                       ),
                       # Add biorender note
@@ -332,7 +363,7 @@ ui <- navbarPage(
                         "biorender_note",
                         "Add Biorender Footnote:",
                         choices = c("Yes", "No"),
-                        selected = "Yes"
+                        selected = "No"
                       )
                     )
                   ),
@@ -465,6 +496,47 @@ server <- function(input, output, session) {
   quiz_versions_with_answers_html <- reactiveVal(NULL) # Store the quiz versions HTML content
   quiz_versions_answers <- reactiveVal(NULL) # Store the quiz answer data frames
 
+  # Button observers for setting templates
+  observeEvent(input$mc_button_set, {
+    updateNumericInput(session, "num_versions", value = 4)
+    updateNumericInput(session, "num_letter_versions", value = 3)
+    updateRadioButtons(session, "shuffle_questions", selected = "Yes")
+    updateRadioButtons(session, "shuffle_sections", selected = "No")
+    updateSelectInput(session, "template_selection", selected = "MC - table then list")
+    updateRadioButtons(session, "quiz_display_option", selected = "mixed")
+    updateRadioButtons(session, "biorender_note", selected = "Yes")
+  })
+
+  observeEvent(input$ps_button_set, {
+    updateNumericInput(session, "num_versions", value = 5)
+    updateNumericInput(session, "num_letter_versions", value = 1)
+    updateRadioButtons(session, "shuffle_questions", selected = "Yes")
+    updateRadioButtons(session, "shuffle_sections", selected = "No")
+    updateSelectInput(session, "template_selection", selected = "Problem set")
+    updateRadioButtons(session, "quiz_display_option", selected = "list")
+    updateRadioButtons(session, "biorender_note", selected = "Yes")
+  })
+
+  observeEvent(input$lab_button_set, {
+    updateNumericInput(session, "num_versions", value = 1)
+    updateNumericInput(session, "num_letter_versions", value = 4)
+    updateRadioButtons(session, "shuffle_questions", selected = "Yes")
+    updateRadioButtons(session, "shuffle_sections", selected = "No")
+    updateSelectInput(session, "template_selection", selected = "Lab - in-class")
+    updateRadioButtons(session, "quiz_display_option", selected = "table")
+    updateRadioButtons(session, "biorender_note", selected = "No")
+  })
+
+  observeEvent(input$lab_rev_button_set, {
+    updateNumericInput(session, "num_versions", value = 4)
+    updateNumericInput(session, "num_letter_versions", value = 3)
+    updateRadioButtons(session, "shuffle_questions", selected = "Yes")
+    updateRadioButtons(session, "shuffle_sections", selected = "No")
+    updateSelectInput(session, "template_selection", selected = "Lab - revision")
+    updateRadioButtons(session, "quiz_display_option", selected = "list")
+    updateRadioButtons(session, "biorender_note", selected = "No")
+  })
+
   # Load and parse the selected quiz file
   observeEvent(input$quiz_file, {
     req(input$quiz_file)
@@ -512,6 +584,9 @@ server <- function(input, output, session) {
 
     # Update the quiz title input
     updateTextInput(session, "quiz_title", value = quiz_title)
+
+    # update the file title input
+    updateTextInput(session, "file_title", value = tools::file_path_sans_ext(input$quiz_file_upload$name))
 
     # Extract section titles
     sections <- c(
@@ -631,6 +706,8 @@ server <- function(input, output, session) {
           "MC-table-template.html"
         } else if (input$template_selection == "MC - list" || (input$template_selection == "MC - table then list" && version != "V1")) {
           "MC-list-template.html"
+        } else if (input$template_selection == "Problem set") {
+          "problem-set-template.html"
         } else if (input$template_selection == "Lab - in-class") {
           "lab-quiz-in-class-template.html"
         } else if (input$template_selection == "Lab - revision") {
@@ -685,6 +762,8 @@ server <- function(input, output, session) {
           "MC-table-template.html"
         } else if (input$template_selection == "MC - list" || (input$template_selection == "MC - table then list" && version != "V1")) {
           "MC-list-template.html"
+        } else if (input$template_selection == "Problem set") {
+          "problem-set-template.html"
         } else if (input$template_selection == "Lab - in-class") {
           "lab-quiz-in-class-template.html"
         } else if (input$template_selection == "Lab - revision") {
