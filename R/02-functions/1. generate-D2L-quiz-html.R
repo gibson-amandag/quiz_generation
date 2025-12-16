@@ -225,6 +225,14 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
           answer_options[tolower(answer_options) == "all of the above"]
         )
       }
+      
+      # Ensure "None of the above" or "none of the above" is at the end
+      if (any(tolower(answer_options) == "none of the above")) {
+        answer_options <- c(
+          setdiff(answer_options, answer_options[tolower(answer_options) == "none of the above"]),
+          answer_options[tolower(answer_options) == "none of the above"]
+        )
+      }
 
       # Determine the correct answer letters
       correct_letter <- LETTERS[which(answer_options %in% question$correct_answers)]
