@@ -69,39 +69,6 @@ td {
     padding-right: 5px;
 }
 
-/* Define styles for printing */
-@media print {
-    @page {
-        margin: 0.75in; /* Adjust the page margins */
-          @bottom-center {
-            content: "Figures created with biorender.com";
-            font-style: italic;
-            font-family: Arial, sans-serif;
-            font-size: 11pt;
-          }
-          @bottom-right{
-            content: "{{version}}";
-            font-size: 11pt;
-          }
-        @top-right {
-            content: counter(page) " of " counter(pages);
-            white-space: pre;
-            display: block;
-            font-family: Arial, sans-serif;
-            font-size: 11pt;
-        }
-    }
-    .question-container {
-        page-break-inside: avoid; /* Prevent <li> from breaking across pages */
-    }
-    tr {
-        page-break-inside: avoid;
-    }
-    ol:not([type="A"]) > li {
-        page-break-inside: avoid; /* Prevent <li> from breaking across pages */
-    }
-}
-
 .feedback-table {
   border-collapse: separate;
   border-spacing: 0px 0px;
@@ -146,4 +113,32 @@ td {
   border: 2px solid #424242;
   box-sizing: border-box;
   text-align: center; 
+}
+
+.cards-wrapper {
+  margin: 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+}
+
+.card-header {
+  font-size: 1.2em;
+  font-weight: bold;
+}
+
+@media print {
+  @page {
+    margin: 0.5in;
+  }
+  .card-container { page-break-inside: avoid; }
+  .question-container {
+      page-break-inside: avoid; /* Prevent <li> from breaking across pages */
+  }
+  tr {
+      page-break-inside: avoid;
+  }
+  ol:not([type="A"]) > li {
+      page-break-inside: avoid; /* Prevent <li> from breaking across pages */
+  }
 }

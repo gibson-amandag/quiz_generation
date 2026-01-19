@@ -11,12 +11,27 @@ generate_questions_html <- function(sections, dispFormat = "list", showAnswers =
       correctAnswer = character(),
       stringsAsFactors = FALSE
     )
+    feedback_meta_df <- data.frame(
+      questionNum = integer(),
+      questionType = character(),
+      numOptions = integer(),
+      correctAnswer = character(),
+      stringsAsFactors = FALSE
+    )
   } else {
     answer_key_df <- data.frame(
       questionNum = integer(),
       correctAnswer = character(),
       section = character(),
       stringsAsFactors = FALSE
+    )
+    feedback_meta_df <- data.frame(
+      questionNum = integer(),
+      questionType = character(),
+      numOptions = integer(),
+      correctAnswer = character(),
+      stringsAsFactors = FALSE,
+      section = character()
     )
     sectionNum <- 1
   }
@@ -91,6 +106,20 @@ generate_questions_html <- function(sections, dispFormat = "list", showAnswers =
               stringsAsFactors = FALSE
             )
           )
+          if (question$question_type %in% c("Multiple Choice", "True/False", "Multi-Select")) {
+            num_options <- length(question$answers)
+            feedback_meta_df <- rbind(
+              feedback_meta_df,
+              data.frame(
+                questionNum = question_number,
+                questionType = question$question_type,
+                numOptions = num_options,
+                correctAnswer = correct_letter_clean,
+                stringsAsFactors = FALSE,
+                section = sectionNum
+              )
+            )
+          }
         } else {
           answer_key_df <- rbind(
             answer_key_df,
@@ -100,6 +129,19 @@ generate_questions_html <- function(sections, dispFormat = "list", showAnswers =
               stringsAsFactors = FALSE
             )
           )
+          if (question$question_type %in% c("Multiple Choice", "True/False", "Multi-Select")) {
+            num_options <- length(question$answers)
+            feedback_meta_df <- rbind(
+              feedback_meta_df,
+              data.frame(
+                questionNum = question_number,
+                questionType = question$question_type,
+                numOptions = num_options,
+                correctAnswer = correct_letter_clean,
+                stringsAsFactors = FALSE
+              )
+            )
+          }
         }
       }
     
@@ -129,7 +171,8 @@ generate_questions_html <- function(sections, dispFormat = "list", showAnswers =
 
   return(list(
     questions = questions_html,
-    answers = answer_key_df
+    answers = answer_key_df,
+    feedback_meta = feedback_meta_df
   ))
 }
 
@@ -568,4 +611,120 @@ generate_styled_html <- function(version_html, css_file, template_file, quiz_tit
   )
 
   return(styled_html)
+}
+
+
+generate_feedback_table <- function(feedback){
+  # Find the max number of options across all questions
+    max_options <- max(feedback$numOptions, na.rm = TRUE)
+  
+    # Prepare the table
+    table_rows <- lapply(seq_len(nrow(feedback)), function(i) {
+      correct_letters <- unlist(strsplit(feedback$correctAnswer[i], ",\\s*"))
+      row <- rep("", max_options)
+      for (j in seq_len(feedback$numOptions[i])) {
+        letter <- LETTERS[j]
+        if (letter %in% correct_letters) {
+          row[j] <- "*"
+        }
+      }
+      c(feedback$questionNum[i], row)
+    })
+  
+    # Build the final data frame
+    col_names <- c("Q#", LETTERS[1:max_options])
+    table_df <- as.data.frame(do.call(rbind, table_rows), stringsAsFactors = FALSE)
+    colnames(table_df) <- col_names
+
+    return(table_df)
+}
+
+generate_feedback_table_html <- function(feedback) {
+  table_df <- generate_feedback_table(feedback)
+  max_options <- ncol(table_df) - 1
+  col_letters <- colnames(table_df)[-1]
+  
+  html <- "<table class='feedback-table'>"
+  # Header
+  html <- paste0(html, "<tr><th class='feedback-qnum-header'>Q#</th>")
+  for (letter in col_letters) {
+    html <- paste0(html, "<th class='feedback-option-header'>", letter, "</th>")
+  }
+  html <- paste0(html, "</tr>")
+  # Rows
+  for (i in seq_len(nrow(table_df))) {
+    html <- paste0(html, "<tr>")
+    html <- paste0(html, "<td class='feedback-qnum'>", table_df[i, 1], "</td>")
+    for (j in 2:ncol(table_df)) {
+      cell_content <- table_df[i, j]
+      cell_class <- "feedback-cell"
+      box_class <- "feedback-box"
+      # If cell_content is "*", randomize its position
+      if (cell_content == "*") {
+        n_spaces <- sample(0:4, 1) # Adjust range for more/less randomness
+        cell_content <- paste0(strrep("&nbsp;", n_spaces), "*")
+      }
+      html <- paste0(html, "<td class='", cell_class, "'><div class='", box_class, "'>", cell_content, "</div></td>")
+    }
+    html <- paste0(html, "</tr>")
+  }
+  html <- paste0(html, "</table>")
+  return(html)
+}
+
+generate_styled_html_cards <- function(
+  cards_list,         # named list: version_key -> card HTML content
+  quiz_title,         # character, quiz title
+  css_file = "www/styles_cardPrint.css", # path to CSS file
+  card_width = "3.5in",
+  card_height = "3in",
+  includeVersions = c(1)
+) {
+  # Read CSS
+  css_content <- readLines(css_file, warn = FALSE)
+
+  # Start HTML
+  html <- paste0(
+    "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>", quiz_title, "</title>",
+    "<style>",
+    paste(css_content, collapse = "\n"),
+    "
+    .card-container {
+      min-width: ", card_width, ";
+      min-height: ", card_height, ";
+      display: inline-block;
+      vertical-align: top;
+      margin: 0.05in;
+      padding: 0.05in;
+      box-sizing: border-box;
+      border: 1px solid #ccc;
+      background: #fff;
+      overflow: hidden;
+    }
+    ",
+    "</style></head><body>",
+    "<div class='cards-wrapper'>"
+  )
+  
+  # Add each card
+  for (version_key in names(cards_list)) {
+    version <- gsub("_L.*", "", version_key)
+    versionNum <- sub("^V", "", version)
+    if(versionNum %in% includeVersions){
+      letter <- gsub(".*_L", "", version_key)
+
+      html <- paste0(
+        html,
+        "<div class='card-container'>",
+        "<div class='card-header'>", quiz_title, 
+        " ", version, letter, " Team # _____", "</div>",
+        cards_list[[version_key]],
+        "</div>"
+      )
+    }
+  }
+  
+  # Close wrapper and HTML
+  html <- paste0(html, "</div></body></html>")
+  return(html)
 }
