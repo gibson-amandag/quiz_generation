@@ -125,10 +125,8 @@ td {
 }
 
 .feedback-cell {
-  min-width: 0.75in;
-  max-width: 0.75in;
-  min-height: 0.33in;
-  max-height: 0.33in;
+  width: 0.6in;
+  height: 0.25in;
   text-align: center;
   vertical-align: middle;
   padding: 0;
@@ -137,8 +135,8 @@ td {
 
 .feedback-box {
   display: inline-block;
-  width: 0.5in;
-  height: 0.15in;
+  width: 0.32in;
+  height: 0.13in;
   border-radius: 12px;
   line-height: 0.15in;
   font-size: 1.2em;
@@ -146,4 +144,8 @@ td {
   border: 2px solid #424242;
   box-sizing: border-box;
   text-align: center; 
+}
+
+.feedback-box-extra {
+  background-color: black;
 }

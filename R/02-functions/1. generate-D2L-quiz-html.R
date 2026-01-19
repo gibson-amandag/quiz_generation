@@ -614,29 +614,33 @@ generate_styled_html <- function(version_html, css_file, template_file, quiz_tit
 }
 
 
-generate_feedback_table <- function(feedback){
+generate_feedback_table <- function(feedback) {
   # Find the max number of options across all questions
-    max_options <- max(feedback$numOptions, na.rm = TRUE)
-  
-    # Prepare the table
-    table_rows <- lapply(seq_len(nrow(feedback)), function(i) {
-      correct_letters <- unlist(strsplit(feedback$correctAnswer[i], ",\\s*"))
-      row <- rep("", max_options)
-      for (j in seq_len(feedback$numOptions[i])) {
-        letter <- LETTERS[j]
+  max_options <- max(feedback$numOptions, na.rm = TRUE)
+
+  # Prepare the table
+  table_rows <- lapply(seq_len(nrow(feedback)), function(i) {
+    correct_letters <- unlist(strsplit(feedback$correctAnswer[i], ",\\s*"))
+    row <- rep("", max_options)
+    for (j in seq_len(max_options)) {
+      letter <- LETTERS[j]
+      if (j <= feedback$numOptions[i]) {
         if (letter %in% correct_letters) {
           row[j] <- "*"
         }
+      } else {
+        row[j] <- "extra"
       }
-      c(feedback$questionNum[i], row)
-    })
-  
-    # Build the final data frame
-    col_names <- c("Q#", LETTERS[1:max_options])
-    table_df <- as.data.frame(do.call(rbind, table_rows), stringsAsFactors = FALSE)
-    colnames(table_df) <- col_names
+    }
+    c(feedback$questionNum[i], row)
+  })
 
-    return(table_df)
+  # Build the final data frame
+  col_names <- c("Q#", LETTERS[1:max_options])
+  table_df <- as.data.frame(do.call(rbind, table_rows), stringsAsFactors = FALSE)
+  colnames(table_df) <- col_names
+
+  table_df
 }
 
 generate_feedback_table_html <- function(feedback) {
@@ -661,8 +665,16 @@ generate_feedback_table_html <- function(feedback) {
       box_class <- "feedback-box"
       # If cell_content is "*", randomize its position
       if (cell_content == "*") {
-        n_spaces <- sample(0:4, 1) # Adjust range for more/less randomness
-        cell_content <- paste0(strrep("&nbsp;", n_spaces), "*")
+        n_spaces <- sample(0:3, 1) # Adjust range for more/less randomness
+        if (runif(1) < 0.5) {
+          cell_content <- paste0(strrep("&nbsp;", n_spaces), "*")
+        } else {
+          cell_content <- paste0("*", strrep("&nbsp;", n_spaces))
+        }
+      }
+      if (cell_content == "extra") {
+        cell_content <- ""
+        box_class <- paste(box_class, "feedback-box-extra")
       }
       html <- paste0(html, "<td class='", cell_class, "'><div class='", box_class, "'>", cell_content, "</div></td>")
     }
