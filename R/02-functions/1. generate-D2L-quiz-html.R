@@ -11,12 +11,27 @@ generate_questions_html <- function(sections, dispFormat = "list", showAnswers =
       correctAnswer = character(),
       stringsAsFactors = FALSE
     )
+    feedback_meta_df <- data.frame(
+      questionNum = integer(),
+      questionType = character(),
+      numOptions = integer(),
+      correctAnswer = character(),
+      stringsAsFactors = FALSE
+    )
   } else {
     answer_key_df <- data.frame(
       questionNum = integer(),
       correctAnswer = character(),
       section = character(),
       stringsAsFactors = FALSE
+    )
+    feedback_meta_df <- data.frame(
+      questionNum = integer(),
+      questionType = character(),
+      numOptions = integer(),
+      correctAnswer = character(),
+      stringsAsFactors = FALSE,
+      section = character()
     )
     sectionNum <- 1
   }
@@ -91,6 +106,20 @@ generate_questions_html <- function(sections, dispFormat = "list", showAnswers =
               stringsAsFactors = FALSE
             )
           )
+          if (question$question_type %in% c("Multiple Choice", "True/False", "Multi-Select")) {
+            num_options <- length(question$answers)
+            feedback_meta_df <- rbind(
+              feedback_meta_df,
+              data.frame(
+                questionNum = question_number,
+                questionType = question$question_type,
+                numOptions = num_options,
+                correctAnswer = correct_letter_clean,
+                stringsAsFactors = FALSE,
+                section = sectionNum
+              )
+            )
+          }
         } else {
           answer_key_df <- rbind(
             answer_key_df,
@@ -100,6 +129,19 @@ generate_questions_html <- function(sections, dispFormat = "list", showAnswers =
               stringsAsFactors = FALSE
             )
           )
+          if (question$question_type %in% c("Multiple Choice", "True/False", "Multi-Select")) {
+            num_options <- length(question$answers)
+            feedback_meta_df <- rbind(
+              feedback_meta_df,
+              data.frame(
+                questionNum = question_number,
+                questionType = question$question_type,
+                numOptions = num_options,
+                correctAnswer = correct_letter_clean,
+                stringsAsFactors = FALSE
+              )
+            )
+          }
         }
       }
     
@@ -129,7 +171,8 @@ generate_questions_html <- function(sections, dispFormat = "list", showAnswers =
 
   return(list(
     questions = questions_html,
-    answers = answer_key_df
+    answers = answer_key_df,
+    feedback_meta = feedback_meta_df
   ))
 }
 

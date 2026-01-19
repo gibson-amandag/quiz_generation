@@ -405,6 +405,12 @@ ui <- navbarPage(
                       class = "col-lg-4",
                       tableOutput("answer_key_table")
                     )
+                  ),
+                  fluidRow(
+                    column(
+                        12,
+                        tableOutput("feedback_meta_table")
+                    )
                   )
                 )
               )
@@ -491,10 +497,12 @@ server <- function(input, output, session) {
   # Reactive values for quiz data and HTML content
   quiz_data <- reactiveVal(NULL)
   questions_html <- reactiveVal(NULL) # Store the HTML content
+  feedback_meta <- reactiveVal(NULL) # Store the feedback meta content
   quiz_versions_html <- reactiveVal(NULL) # Store the quiz versions HTML content
   quiz_versions_word <- reactiveVal(NULL) # Store the quiz versions word content
   quiz_versions_with_answers_html <- reactiveVal(NULL) # Store the quiz versions HTML content
   quiz_versions_answers <- reactiveVal(NULL) # Store the quiz answer data frames
+  quiz_versions_feedback <- reactiveVal(NULL) # Store the quiz feedback data frames
 
   # Button observers for setting templates
   observeEvent(input$mc_button_set, {
@@ -636,6 +644,10 @@ server <- function(input, output, session) {
     # Store the HTML content in the reactive value
     questions_html(html_content$questions)
 
+    # store the feedback meta content in the reactive value
+    # AGG - Note, probably won't use this. This is all questions, no versions
+    feedback_meta(html_content$feedback_meta)
+
     # Render the HTML
     HTML(html_content$questions)
   })
@@ -668,6 +680,16 @@ server <- function(input, output, session) {
       writeLines(styled_html, file)
     }
   )
+
+  output$feedback_meta_table <- renderTable({
+    req(quiz_versions_feedback())
+    selected_version <- input$quiz_version
+    selected_letter <- input$quiz_letter
+    version_key <- paste0(selected_version, "_L", selected_letter)
+    feedback <- quiz_versions_feedback()[[version_key]]
+    req(feedback)
+    feedback
+  })
 
   # Download handler for saving the selected quiz version as HTML
   output$download_quiz <- downloadHandler(
@@ -878,6 +900,9 @@ server <- function(input, output, session) {
       # Initialize a list to store answer keys
       answer_keys <- list()
 
+      # Initialize a list to store feedback for each version
+      feedbacks <- list()
+
       # Initialize a list to store the word doc versions
       word_docs <- list()
 
@@ -951,6 +976,8 @@ server <- function(input, output, session) {
           versions_with_answers_html[[versionName]] <- version_with_answers_html$questions
           # Store the answer key in the list
           answer_keys[[versionName]] <- version_html$answers
+          # Store the feedback in the list
+          feedbacks[[versionName]] <- version_html$feedback_meta
           # Store the word doc in the list
           word_docs[[versionName]] <- word_doc
         }
@@ -961,6 +988,7 @@ server <- function(input, output, session) {
       quiz_versions_word(word_docs)
       quiz_versions_with_answers_html(versions_with_answers_html)
       quiz_versions_answers(answer_keys)
+      quiz_versions_feedback(feedbacks)
     }
   )
 
