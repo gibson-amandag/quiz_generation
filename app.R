@@ -391,8 +391,7 @@ ui <- navbarPage(
                       downloadButton(
                         "download_answer_key",
                         "Download All Answer Keys"
-                      ),
-                      downloadButton("download_all_quiz_cards", "Download All Quiz Cards (2x2 Portrait)")
+                      )
                     )
                   ),
                   fluidRow(
@@ -406,21 +405,49 @@ ui <- navbarPage(
                       class = "col-lg-4",
                       tableOutput("answer_key_table")
                     )
-                  ),
-                  fluidRow(
-                    column(
-                        12,
-                        htmlOutput("feedback_meta_table")
-                    )
                   )
                 )
               )
-            )
-          )
-        )
-      )
-    )
-  ),
+            ),
+						tabPanel(
+							"Feedback Cards",
+							fluidRow(
+								column(
+									12,
+									helpText("Generate feedback cards for all versions and letters based on the feedback provided in the quiz XML."),
+								)
+							),
+							fluidRow(
+								column(
+									6,
+									downloadButton(
+										"download_all_quiz_cards",
+										"Download Feedback Cards"
+									)
+								),
+								column(
+									6,
+									selectInput(
+										"feedback_versions_select",
+										"Select Versions to Include:",
+										choices = NULL, # will be updated dynamically
+										multiple = TRUE,
+										selected = NULL
+									)
+								)
+							),
+							fluidRow(
+								column(
+										12,
+										htmlOutput("answerCardsHTML")
+								)
+							)
+						)
+					)
+				)
+			)
+		)
+	),
 
   # Page 3: Word to D2L Import
   tabPanel(
@@ -682,16 +709,32 @@ server <- function(input, output, session) {
     }
   )
 
-  output$feedback_meta_table <- renderUI({
-    req(quiz_versions_feedback())
-    selected_version <- input$quiz_version
-    selected_letter <- input$quiz_letter
-    version_key <- paste0(selected_version, "_L", selected_letter)
-    feedback <- quiz_versions_feedback()[[version_key]]
-    req(feedback)
-    
-    HTML(generate_feedback_table_html(feedback))
-  })
+  output$answerCardsHTML <- renderUI({
+		req(quiz_versions_feedback())
+		all_feedback <- quiz_versions_feedback()
+		req(all_feedback)
+		selected_versions <- input$feedback_versions_select
+		req(selected_versions)
+	
+		# Filter for selected versions (all letters)
+		selected_cards <- all_feedback[sapply(names(all_feedback), function(x) {
+			version <- sub("_L.*", "", x)
+			version %in% selected_versions
+		})]
+		req(length(selected_cards) > 0)
+	
+		# Generate card HTML for each selected version/letter
+		cards_list <- lapply(selected_cards, generate_feedback_table_html)
+		names(cards_list) <- names(selected_cards)
+	
+		html <- generate_styled_html_cards(
+			cards_list = cards_list,
+			quiz_title = input$quiz_title,
+			css_file = "www/styles_cardPrint.css",
+			includeVersions = as.integer(gsub("^V", "", selected_versions))
+		)
+		HTML(html)
+	})
 
 
 
@@ -819,28 +862,35 @@ server <- function(input, output, session) {
   )
 
   output$download_all_quiz_cards <- downloadHandler(
-    filename = function() {
-        quiz_title <- input$file_title
-        paste0(quiz_title, "_allQuizCards_2x2.html")
-    },
-    content = function(file) {
-        req(quiz_versions_feedback())
-        all_feedback <- quiz_versions_feedback()
-        req(all_feedback)
-
-        # Prepare card HTML for each version using feedback
-        cards_list <- lapply(all_feedback, generate_feedback_table_html)
-        names(cards_list) <- names(all_feedback) # preserve version keys
-
-        # Generate the styled HTML for all cards
-        html <- generate_styled_html_cards(
-        cards_list = cards_list,
-        quiz_title = input$quiz_title
-        # defaults to only make cards for V1
-        )
-        writeLines(html, file)
-    }
-  )
+		filename = function() {
+			quiz_title <- input$file_title
+			paste0(quiz_title, "_quizCards.html")
+		},
+		content = function(file) {
+			req(quiz_versions_feedback())
+			all_feedback <- quiz_versions_feedback()
+			req(all_feedback)
+			selected_versions <- input$feedback_versions_select
+			req(selected_versions)
+	
+			selected_cards <- all_feedback[sapply(names(all_feedback), function(x) {
+				version <- sub("_L.*", "", x)
+				version %in% selected_versions
+			})]
+			req(length(selected_cards) > 0)
+	
+			cards_list <- lapply(selected_cards, generate_feedback_table_html)
+			names(cards_list) <- names(selected_cards)
+	
+			html <- generate_styled_html_cards(
+				cards_list = cards_list,
+				quiz_title = input$quiz_title,
+				css_file = "www/styles_cardPrint.css",
+				includeVersions = as.integer(gsub("^V", "", selected_versions))
+			)
+			writeLines(html, file)
+		}
+	)
 
   output$download_quiz_word <- downloadHandler(
     filename = function() {
@@ -1019,6 +1069,13 @@ server <- function(input, output, session) {
       quiz_versions_feedback(feedbacks)
     }
   )
+
+	observeEvent(quiz_versions_feedback(), {
+		req(quiz_versions_feedback())
+		version_keys <- names(quiz_versions_feedback())
+		versions <- unique(sub("_L.*", "", version_keys))
+		updateSelectInput(session, "feedback_versions_select", choices = versions, selected = versions)
+	})
 
   output$quiz_output <- renderUI({
     req(quiz_versions_html()) # Ensure versions HTML is available

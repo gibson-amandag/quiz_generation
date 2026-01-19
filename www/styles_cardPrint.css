@@ -116,7 +116,6 @@ td {
 }
 
 .cards-wrapper {
-  /* width: 7.5in; */
   margin: 0 auto;
   display: flex;
   flex-wrap: wrap;
@@ -126,7 +125,6 @@ td {
 .card-header {
   font-size: 1.2em;
   font-weight: bold;
-  /* margin-bottom: 0.3in; */
 }
 
 @media print {
@@ -134,7 +132,6 @@ td {
     margin: 0.5in;
   }
   .card-container { page-break-inside: avoid; }
-  /* .cards-wrapper { width: 7.5in; } */
   .question-container {
       page-break-inside: avoid; /* Prevent <li> from breaking across pages */
   }

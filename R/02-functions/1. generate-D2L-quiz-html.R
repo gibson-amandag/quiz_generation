@@ -705,7 +705,6 @@ generate_styled_html_cards <- function(
     "</style></head><body>",
     "<div class='cards-wrapper'>"
   )
-      # body { margin: 0; }
   
   # Add each card
   for (version_key in names(cards_list)) {
