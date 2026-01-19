@@ -688,7 +688,29 @@ server <- function(input, output, session) {
     version_key <- paste0(selected_version, "_L", selected_letter)
     feedback <- quiz_versions_feedback()[[version_key]]
     req(feedback)
-    feedback
+  
+    # Find the max number of options across all questions
+    max_options <- max(feedback$numOptions, na.rm = TRUE)
+  
+    # Prepare the table
+    table_rows <- lapply(seq_len(nrow(feedback)), function(i) {
+      correct_letters <- unlist(strsplit(feedback$correctAnswer[i], ",\\s*"))
+      row <- rep("", max_options)
+      for (j in seq_len(feedback$numOptions[i])) {
+        letter <- LETTERS[j]
+        if (letter %in% correct_letters) {
+          row[j] <- "*"
+        }
+      }
+      c(feedback$questionNum[i], row)
+    })
+  
+    # Build the final data frame
+    col_names <- c("Q#", LETTERS[1:max_options])
+    table_df <- as.data.frame(do.call(rbind, table_rows), stringsAsFactors = FALSE)
+    colnames(table_df) <- col_names
+  
+    table_df
   })
 
   # Download handler for saving the selected quiz version as HTML
