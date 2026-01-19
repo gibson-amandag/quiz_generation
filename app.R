@@ -391,7 +391,8 @@ ui <- navbarPage(
                       downloadButton(
                         "download_answer_key",
                         "Download All Answer Keys"
-                      )
+                      ),
+                      downloadButton("download_all_quiz_cards", "Download All Quiz Cards (2x2 Portrait)")
                     )
                   ),
                   fluidRow(
@@ -409,7 +410,7 @@ ui <- navbarPage(
                   fluidRow(
                     column(
                         12,
-                        tableOutput("feedback_meta_table")
+                        htmlOutput("feedback_meta_table")
                     )
                   )
                 )
@@ -681,37 +682,18 @@ server <- function(input, output, session) {
     }
   )
 
-  output$feedback_meta_table <- renderTable({
+  output$feedback_meta_table <- renderUI({
     req(quiz_versions_feedback())
     selected_version <- input$quiz_version
     selected_letter <- input$quiz_letter
     version_key <- paste0(selected_version, "_L", selected_letter)
     feedback <- quiz_versions_feedback()[[version_key]]
     req(feedback)
-  
-    # Find the max number of options across all questions
-    max_options <- max(feedback$numOptions, na.rm = TRUE)
-  
-    # Prepare the table
-    table_rows <- lapply(seq_len(nrow(feedback)), function(i) {
-      correct_letters <- unlist(strsplit(feedback$correctAnswer[i], ",\\s*"))
-      row <- rep("", max_options)
-      for (j in seq_len(feedback$numOptions[i])) {
-        letter <- LETTERS[j]
-        if (letter %in% correct_letters) {
-          row[j] <- "*"
-        }
-      }
-      c(feedback$questionNum[i], row)
-    })
-  
-    # Build the final data frame
-    col_names <- c("Q#", LETTERS[1:max_options])
-    table_df <- as.data.frame(do.call(rbind, table_rows), stringsAsFactors = FALSE)
-    colnames(table_df) <- col_names
-  
-    table_df
+    
+    HTML(generate_feedback_table_html(feedback))
   })
+
+
 
   # Download handler for saving the selected quiz version as HTML
   output$download_quiz <- downloadHandler(
@@ -833,6 +815,30 @@ server <- function(input, output, session) {
       old_wd <- setwd(temp_dir) # Temporarily change the working directory
       on.exit(setwd(old_wd)) # Ensure the working directory is reset after zipping
       zip(file, files = basename(html_files)) # Use relative paths for the ZIP file
+    }
+  )
+
+  output$download_all_quiz_cards <- downloadHandler(
+    filename = function() {
+        quiz_title <- input$file_title
+        paste0(quiz_title, "_allQuizCards_2x2.html")
+    },
+    content = function(file) {
+        req(quiz_versions_feedback())
+        all_feedback <- quiz_versions_feedback()
+        req(all_feedback)
+
+        # Prepare card HTML for each version using feedback
+        cards_list <- lapply(all_feedback, generate_feedback_table_html)
+        names(cards_list) <- names(all_feedback) # preserve version keys
+
+        # Generate the styled HTML for all cards
+        html <- generate_styled_html_cards(
+        cards_list = cards_list,
+        quiz_title = input$quiz_title
+        # defaults to only make cards for V1
+        )
+        writeLines(html, file)
     }
   )
 
