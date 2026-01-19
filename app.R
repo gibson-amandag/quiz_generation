@@ -263,7 +263,12 @@ ui <- navbarPage(
                     "mc_button_set",
                     "Set MC",
                     width = "100%"
-                  )
+                  ),
+									actionButton(
+										"team_button_set",
+										"Set Team Quiz",
+										width = "100%"
+									)
                 ),
                 column(
                   4,
@@ -355,7 +360,7 @@ ui <- navbarPage(
                       selectInput(
                         "template_selection",
                         "Select Template:",
-                        choices = c("Basic", "MC - table", "MC - list", "MC - table then list", "Problem set", "Lab - in-class", "Lab - revision"),
+                        choices = c("Basic", "MC - table", "MC - list", "MC - table then list", "Problem set", "Lab - in-class", "Lab - revision", "Team Quiz"),
                         selected = "Basic"
                       ),
                       # Add biorender note
@@ -543,6 +548,17 @@ server <- function(input, output, session) {
     updateRadioButtons(session, "biorender_note", selected = "Yes")
   })
 
+	observeEvent(input$team_button_set, {
+		updateNumericInput(session, "num_versions", value = 1)
+		updateNumericInput(session, "num_letter_versions", value = 8)
+		updateRadioButtons(session, "shuffle_questions", selected = "Yes")
+		updateRadioButtons(session, "shuffle_sections", selected = "No")
+		updateSelectInput(session, "template_selection", selected = "Team Quiz")
+		updateRadioButtons(session, "quiz_display_option", selected = "list")
+		updateRadioButtons(session, "biorender_note", selected = "Yes")
+		updateTextInput(session, "file_title", value = paste0(input$file_title, "_team"))
+	})
+
   observeEvent(input$ps_button_set, {
     updateNumericInput(session, "num_versions", value = 5)
     updateNumericInput(session, "num_letter_versions", value = 1)
@@ -718,8 +734,9 @@ server <- function(input, output, session) {
 	
 		# Filter for selected versions (all letters)
 		selected_cards <- all_feedback[sapply(names(all_feedback), function(x) {
-			version <- sub("_L.*", "", x)
-			version %in% selected_versions
+			# version <- sub("_L.*", "", x)
+			# version %in% selected_versions
+			x %in% selected_versions
 		})]
 		req(length(selected_cards) > 0)
 	
@@ -731,7 +748,7 @@ server <- function(input, output, session) {
 			cards_list = cards_list,
 			quiz_title = input$quiz_title,
 			css_file = "www/styles_cardPrint.css",
-			includeVersions = as.integer(gsub("^V", "", selected_versions))
+			includeVersions = selected_versions
 		)
 		HTML(html)
 	})
@@ -781,7 +798,9 @@ server <- function(input, output, session) {
           "lab-quiz-in-class-template.html"
         } else if (input$template_selection == "Lab - revision") {
           "lab-quiz-revision-template.html"
-        } else {
+        } else if (input$template_selection == "Team Quiz") {
+					"team-quiz-template.html"
+				} else {
           "basicTemplate.html"
         }),
         quiz_title = input$quiz_title,
@@ -837,7 +856,9 @@ server <- function(input, output, session) {
           "lab-quiz-in-class-template.html"
         } else if (input$template_selection == "Lab - revision") {
           "lab-quiz-revision-template.html"
-        } else {
+        } else if (input$template_selection == "Team Quiz") {
+					"team-quiz-template.html"
+				} else {
           "basicTemplate.html"
         }),
           quiz_title = input$quiz_title,
@@ -874,8 +895,9 @@ server <- function(input, output, session) {
 			req(selected_versions)
 	
 			selected_cards <- all_feedback[sapply(names(all_feedback), function(x) {
-				version <- sub("_L.*", "", x)
-				version %in% selected_versions
+				# version <- sub("_L.*", "", x)
+				# version %in% selected_versions
+				x %in% selected_versions
 			})]
 			req(length(selected_cards) > 0)
 	
@@ -886,7 +908,7 @@ server <- function(input, output, session) {
 				cards_list = cards_list,
 				quiz_title = input$quiz_title,
 				css_file = "www/styles_cardPrint.css",
-				includeVersions = as.integer(gsub("^V", "", selected_versions))
+				includeVersions = selected_versions
 			)
 			writeLines(html, file)
 		}
@@ -1074,7 +1096,7 @@ server <- function(input, output, session) {
 		req(quiz_versions_feedback())
 		version_keys <- names(quiz_versions_feedback())
 		versions <- unique(sub("_L.*", "", version_keys))
-		updateSelectInput(session, "feedback_versions_select", choices = versions, selected = versions)
+		updateSelectInput(session, "feedback_versions_select", choices = version_keys, selected = version_keys)
 	})
 
   output$quiz_output <- renderUI({

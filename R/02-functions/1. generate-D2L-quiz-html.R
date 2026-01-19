@@ -678,7 +678,7 @@ generate_styled_html_cards <- function(
   css_file = "www/styles_cardPrint.css", # path to CSS file
   card_width = "3.5in",
   card_height = "3in",
-  includeVersions = c(1)
+  includeVersions = c("V1_LC", "V1_LD", "V1_LE", "V1_LF", "V1_LG")
 ) {
   # Read CSS
   css_content <- readLines(css_file, warn = FALSE)
@@ -710,7 +710,7 @@ generate_styled_html_cards <- function(
   for (version_key in names(cards_list)) {
     version <- gsub("_L.*", "", version_key)
     versionNum <- sub("^V", "", version)
-    if(versionNum %in% includeVersions){
+    if(version_key %in% includeVersions){
       letter <- gsub(".*_L", "", version_key)
 
       html <- paste0(
