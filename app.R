@@ -20,8 +20,14 @@ ui <- navbarPage(
       fluidRow(
         column(
           4,
-          fileInput("exam_file_upload", "Upload Exam File:", accept = c(".docx")),
-          helpText("Upload a Word document containing the exam to shuffle its questions.")
+          fileInput("exam_file_upload", "Upload Exam File:", accept = c(".docx"))
+          , tags$a(
+            href = "ExampleQuiz.docx",
+            download = NA,
+            # class = "btn btn-default",
+            "Download Example Quiz Doc"
+          )
+          , helpText("Upload a Word document containing the exam to shuffle its questions.")
         ),
         column(
           4,
