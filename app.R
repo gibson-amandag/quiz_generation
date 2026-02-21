@@ -794,9 +794,9 @@ server <- function(input, output, session) {
       styled_html <- generate_styled_html(
         version_html = version_html,
         css_file = "www/styles.css",
-        template_file = paste0("www/", if (input$template_selection == "MC - table" || (input$template_selection == "MC - table then list" && version == "V1")) {
+        template_file = paste0("www/", if (input$template_selection == "MC - table" || (input$template_selection == "MC - table then list" && selected_version == "V1")) {
           "MC-table-template.html"
-        } else if (input$template_selection == "MC - list" || (input$template_selection == "MC - table then list" && version != "V1")) {
+        } else if (input$template_selection == "MC - list" || (input$template_selection == "MC - table then list" && selected_version != "V1")) {
           "MC-list-template.html"
         } else if (input$template_selection == "Problem set") {
           "problem-set-template.html"
