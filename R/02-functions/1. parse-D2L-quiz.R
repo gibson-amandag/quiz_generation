@@ -274,13 +274,39 @@ parse_true_false_question <- function(item, ns) {
     xml_text(xml_find_first(answer, ".//mattext", ns))
   })
 
-  # Extract the correct answer identifier from <respcondition>
-  correct_answer_ident <- xml_text(xml_find_first(item, ".//respcondition/conditionvar/varequal", ns))
+  # Determine the correct answer by finding the <respcondition> that awards full credit
+  respconditions <- xml_find_all(item, ".//respcondition", ns)
+  correct_answer_ident <- NULL
+  for (resp in respconditions) {
+    # Prefer explicit varname="D2L_Correct" on <setvar>
+    setvar_node <- xml_find_first(resp, ".//setvar", ns)
+    if (!inherits(setvar_node, "xml_missing")) {
+      setvar_varname <- xml_attr(setvar_node, "varname")
+      setvar_text <- xml_text(setvar_node)
+      if (!is.na(setvar_varname) && setvar_varname == "D2L_Correct") {
+        correct_answer_ident <- xml_text(xml_find_first(resp, ".//conditionvar/varequal", ns))
+        break
+      }
+      # Fallback: numeric 100 indicates correct
+      if (!is.na(setvar_text) && grepl("^100", setvar_text)) {
+        correct_answer_ident <- xml_text(xml_find_first(resp, ".//conditionvar/varequal", ns))
+        break
+      }
+    }
+  }
+
+  # If still not found, try any varequal under respcondition with setvar 100
+  if (is.null(correct_answer_ident)) {
+    correct_answer_ident <- xml_text(xml_find_first(item, ".//respcondition[.//setvar and contains(.//setvar, '100')]/conditionvar/varequal", ns))
+  }
 
   # Match the correct answer identifier to its text
-  correct_answer <- answer_texts[which(sapply(answers, function(answer) {
-    xml_attr(answer, "ident")
-  }) == correct_answer_ident)]
+  correct_answer <- NA
+  if (!is.na(correct_answer_ident) && nzchar(correct_answer_ident)) {
+    answer_idents <- sapply(answers, function(answer) xml_attr(answer, "ident"))
+    match_idx <- which(answer_idents == correct_answer_ident)
+    if (length(match_idx) == 1) correct_answer <- answer_texts[match_idx]
+  }
 
   list(
     question_id = question_id,
