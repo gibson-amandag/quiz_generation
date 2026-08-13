@@ -795,7 +795,12 @@ server <- function(input, output, session) {
         version_html = version_html,
         css_file = "www/styles.css",
         template_file = paste0("www/", if (input$template_selection == "MC - table" || (input$template_selection == "MC - table then list" && selected_version == "V1")) {
-          "MC-table-template.html"
+          if(grepl("_Mod", input$file_title)) { # check if a modified version
+            "MC-table-template_mod.html"
+          } else {
+            "MC-table-template.html"
+          }
+          
         } else if (input$template_selection == "MC - list" || (input$template_selection == "MC - table then list" && selected_version != "V1")) {
           "MC-list-template.html"
         } else if (input$template_selection == "Problem set") {
