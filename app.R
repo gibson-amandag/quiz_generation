@@ -546,7 +546,7 @@ server <- function(input, output, session) {
   # Button observers for setting templates
   observeEvent(input$mc_button_set, {
     updateNumericInput(session, "num_versions", value = 4)
-    updateNumericInput(session, "num_letter_versions", value = 3)
+    updateNumericInput(session, "num_letter_versions", value = 4)
     updateRadioButtons(session, "shuffle_questions", selected = "Yes")
     updateRadioButtons(session, "shuffle_sections", selected = "No")
     updateSelectInput(session, "template_selection", selected = "MC - table then list")
@@ -556,7 +556,7 @@ server <- function(input, output, session) {
 
 	observeEvent(input$team_button_set, {
 		updateNumericInput(session, "num_versions", value = 1)
-		updateNumericInput(session, "num_letter_versions", value = 8)
+		updateNumericInput(session, "num_letter_versions", value = 9)
 		updateRadioButtons(session, "shuffle_questions", selected = "Yes")
 		updateRadioButtons(session, "shuffle_sections", selected = "No")
 		updateSelectInput(session, "template_selection", selected = "Team Quiz")
