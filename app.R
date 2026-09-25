@@ -615,14 +615,10 @@ server <- function(input, output, session) {
     quiz_data(parse_d2l_xml(input$quiz_file))
 
     # Extract section titles
-    sections <- c(
-      "All",
-      sapply(
-        quiz_data()$sections,
-        function(section) section$section_title
-      )
-    )
-    sections <- setNames(sections, sections) # Ensure all elements are named
+    flat_sections <- flatten_quiz_sections(quiz_data()$sections)
+    section_titles <- vapply(flat_sections, function(section) section$section_title, character(1))
+    section_keys <- vapply(flat_sections, function(section) section$section_key, character(1))
+    sections <- c("All" = "All", setNames(section_keys, section_titles))
 
     # Update the section filter dropdown
     updateSelectInput(session, "section_filter", choices = sections)
@@ -647,14 +643,10 @@ server <- function(input, output, session) {
     updateTextInput(session, "file_title", value = tools::file_path_sans_ext(input$quiz_file_upload$name))
 
     # Extract section titles
-    sections <- c(
-      "All",
-      sapply(
-        quiz_data()$sections,
-        function(section) section$section_title
-      )
-    )
-    sections <- setNames(sections, sections) # Ensure all elements are named
+    flat_sections <- flatten_quiz_sections(quiz_data()$sections)
+    section_titles <- vapply(flat_sections, function(section) section$section_title, character(1))
+    section_keys <- vapply(flat_sections, function(section) section$section_key, character(1))
+    sections <- c("All" = "All", setNames(section_keys, section_titles))
 
     # Update the section filter dropdown
     updateSelectInput(session, "section_filter", choices = sections)
@@ -668,18 +660,17 @@ server <- function(input, output, session) {
     selected_section <- input$section_filter
 
     # Filter questions based on the selected section
-    if (selected_section == "All") {
-      questions_to_display <- quiz_data()$sections
+    flat_sections <- flatten_quiz_sections(quiz_data()$sections)
+    section_keys <- vapply(flat_sections, function(section) section$section_key, character(1))
+    if (is.null(selected_section) || length(selected_section) != 1 || is.na(selected_section)) {
+      selected_section <- "All"
+    }
+    selected_section_index <- match(selected_section, section_keys)
+
+    if (identical(selected_section, "All") || is.na(selected_section_index)) {
+      questions_to_display <- flat_sections
     } else {
-      # Filter the section based on section_title
-      questions_to_display <- list(
-        quiz_data()$sections[[which(
-          sapply(
-            quiz_data()$sections,
-            function(section) section$section_title == selected_section
-          )
-        )]]
-      )
+      questions_to_display <- list(flat_sections[[selected_section_index]])
     }
 
     # Generate HTML for all questions

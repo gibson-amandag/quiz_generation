@@ -38,68 +38,93 @@ parse_d2l_xml <- function(xml_file) {
     stop("No container section found. Check the XML structure.")
   }
 
-  # Extract all direct children of the container section (both <item> and <section>)
-  container_children <- xml_find_all(container_section, "./*", ns)
-
-  # Initialize a list to store sections and uncategorized questions in order
-  sections <- list()
-
-  # Process each child in the order it appears
-  for (child in container_children) {
-    if (xml_name(child) == "item") {
-      # If the child is an <item>, treat it as an uncategorized question
-      question <- parse_question(child, ns)
-
-      # Check if the last section in the list is uncategorized
-      if (length(sections) > 0 && sections[[length(sections)]]$section_id == "UNCATEGORIZED") {
-        # Add the question to the existing uncategorized section
-        sections[[length(sections)]]$questions <- append(sections[[length(sections)]]$questions, list(question))
-        sections[[length(sections)]]$num_items <- sections[[length(sections)]]$num_items + 1
-      } else {
-        # Create a new uncategorized section
-        sections <- append(sections, list(list(
-          section_id = "UNCATEGORIZED",
-          section_title = "Uncategorized",
-          num_items = 1,
-          questions = list(question)
-        )))
-      }
-    } else if (xml_name(child) == "section") {
-      # If the child is a <section>, parse it as a section
-      section <- parse_section(child, ns)
-      sections <- append(sections, list(section))
-    }
-  }
+  parsed_children <- parse_quiz_section_children(container_section, ns)
+  sections <- parsed_children$sections
 
   # Return the parsed data, including the quiz title
   list(
     title = quiz_title,
-    sections = sections
+    sections = sections,
+    contents = parsed_children$contents
   )
+}
+
+parse_quiz_section_children <- function(parent, ns) {
+  sections <- list()
+  contents <- list()
+
+  for (child in xml_children(parent)) {
+    if (xml_name(child) == "item") {
+      question <- parse_question(child, ns)
+
+      if (length(sections) > 0 && sections[[length(sections)]]$section_id == "UNCATEGORIZED") {
+        section_index <- length(sections)
+        sections[[section_index]]$questions <- append(sections[[section_index]]$questions, list(question))
+        sections[[section_index]]$num_items <- sections[[section_index]]$num_items + 1
+      } else {
+        sections <- append(sections, list(list(
+          section_id = "UNCATEGORIZED",
+          section_title = "Uncategorized",
+          num_items = 1,
+          questions = list(question),
+          nested_sections = list(),
+          contents = list(),
+          is_pool = FALSE
+        )))
+        section_index <- length(sections)
+      }
+
+      sections[[section_index]]$contents <- append(
+        sections[[section_index]]$contents,
+        list(list(type = "question", index = length(sections[[section_index]]$questions)))
+      )
+      contents <- append(contents, list(list(type = "section", index = section_index)))
+    } else if (xml_name(child) == "section") {
+      sections <- append(sections, list(parse_section(child, ns)))
+      contents <- append(contents, list(list(type = "section", index = length(sections))))
+    }
+  }
+
+  list(sections = sections, contents = contents)
 }
 
 parse_section <- function(section, ns) {
   section_id <- xml_attr(section, "ident")
   section_title <- xml_attr(section, "title")
-  num_items <- as.integer(xml_text(xml_find_first(section, ".//fieldentry[../fieldlabel='qmd_numberofitems']", ns)))
+  number_of_items_node <- xml_find_first(
+    section,
+    "./qtimetadata/qti_metadatafield[fieldlabel='qmd_numberofitems']/fieldentry",
+    ns
+  )
+  has_pool_metadata <- !inherits(number_of_items_node, "xml_missing")
+  num_items <- if (has_pool_metadata) as.integer(xml_text(number_of_items_node)) else NA_integer_
 
-  if (is.na(num_items) || is.null(num_items)) {
-    # Default to number of questions in the section
-    num_items <- length(xml_find_all(section, ".//item", ns))
+  questions <- list()
+  nested_sections <- list()
+  contents <- list()
+
+  for (child in xml_children(section)) {
+    if (xml_name(child) == "item") {
+      questions <- append(questions, list(parse_question(child, ns)))
+      contents <- append(contents, list(list(type = "question", index = length(questions))))
+    } else if (xml_name(child) == "section") {
+      nested_sections <- append(nested_sections, list(parse_section(child, ns)))
+      contents <- append(contents, list(list(type = "nested_section", index = length(nested_sections))))
+    }
   }
 
-  # Extract questions within the section
-  items <- xml_find_all(section, ".//item", ns)
-  questions <- lapply(items, function(item) {
-    parse_question(item, ns)
-  })
+  if (is.na(num_items)) {
+    num_items <- length(questions)
+  }
 
-  # Return section data
   list(
     section_id = section_id,
     section_title = section_title,
     num_items = num_items,
-    questions = questions
+    questions = questions,
+    nested_sections = nested_sections,
+    contents = contents,
+    is_pool = has_pool_metadata
   )
 }
 
