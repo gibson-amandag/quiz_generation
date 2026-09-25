@@ -233,12 +233,12 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
         if (question$question_type == "True/False") {
           shuffleAnswers <- FALSE
         }
-        # Check if any answer includes "A and B," "B and C," or "A and C"
-        contains_combined_answers <- any(grepl("\\b(A and B|B and C|A and C)\\b", question$answers, ignore.case = TRUE))
-
-        if (!contains_combined_answers) {
-          contains_combined_answers <- any(grepl("\\b(A\\) and B\\)|B\\) and C\\)|A\\) and C\\))\\b", question$answers, ignore.case = TRUE))
-        }
+        contains_combined_answers <- any(grepl(
+          "\\b(?:both\\s+)?[A-Z]\\)?\\s+and\\s+[A-Z]\\)?(?![[:alpha:]])",
+          question$answers,
+          ignore.case = TRUE,
+          perl = TRUE
+        ))
 
         # Disable shuffling if the answers are sequential letters
         if (is_sequential_letters) {
@@ -330,9 +330,12 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
         prompt
       })
 
-      is_sequential_letters <- all(
-        sapply(prompts, function(prompt) prompt$prompt) %in% LETTERS[1:length(prompts)]
-      )
+      normalized_prompt_labels <- vapply(prompts, function(prompt) {
+        label <- trimws(gsub("<[^>]*>", "", prompt$prompt))
+        sub("[.)]$", "", label)
+      }, character(1))
+      is_sequential_letters <- length(normalized_prompt_labels) > 0 &&
+        identical(unname(normalized_prompt_labels), LETTERS[seq_along(normalized_prompt_labels)])
 
       # Shuffle choices and prompts if shuffleAnswers is enabled
       if (shuffleAnswers) {
@@ -362,8 +365,9 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
       question_html <- paste0(
         question_html,
         "<div style='display: flex; width: 100%;'>",
-        "<div style='width: 50%; padding-right: 10px;'>"
+        if (is_sequential_letters) "<div style='width: 100%;'>" else "<div style='width: 50%; padding-right: 10px;'>"
       )
+      letters <- LETTERS[seq_along(prompts)]
 
       # Add choices to the left column
       for (choice in choices) {
@@ -380,31 +384,26 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
         )
       }
 
-      question_html <- paste0(
-        question_html,
-        "</div>",
-        "<div style='width: 50%; padding-left: 10px;'>"
-      )
+      if (!is_sequential_letters) {
+        question_html <- paste0(
+          question_html,
+          "</div>",
+          "<div style='width: 50%; padding-left: 10px;'>"
+        )
 
-      # Add prompts to the right column, lettered A, B, C, etc.
-      letters <- LETTERS[1:length(prompts)]
-      for (i in seq_along(prompts)) {
-        if (!is_sequential_letters) {
+        # Add prompts to the right column, lettered A, B, C, etc.
+        for (i in seq_along(prompts)) {
           question_html <- paste0(
             question_html,
             "<div>", letters[i], ". ", prompts[[i]]$prompt, "</div>"
           )
-        } else {
-          question_html <- paste0(
-            question_html,
-            "<div>", prompts[[i]]$prompt, "</div>"
-          )
         }
+
+        question_html <- paste0(question_html, "</div>")
       }
 
       question_html <- paste0(
         question_html,
-        "</div>",
         "</div>"
       )
 
