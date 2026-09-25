@@ -1,4 +1,20 @@
 # Flatten quiz section nodes for renderers that still accept a section list.
+remove_biorender_attribution <- function(text) {
+  text <- gsub(
+    "(?is)<p\\b[^>]*>\\s*(?:<em\\b[^>]*>\\s*)?(?:Image|Figure)\\s+created\\s+with\\s+BioRender(?:\\.com)?\\s*(?:</em>)?\\s*</p>",
+    "",
+    text,
+    perl = TRUE
+  )
+  text <- gsub(
+    "(?is)(?:<em\\b[^>]*>\\s*)?(?:Image|Figure)\\s+created\\s+with\\s+BioRender(?:\\.com)?\\s*(?:</em>)?",
+    "",
+    text,
+    perl = TRUE
+  )
+  text
+}
+
 flatten_quiz_sections <- function(sections, parent_path = character(), parent_key = character()) {
   flattened <- list()
 

@@ -172,7 +172,7 @@ generate_questions_html <- function(sections, dispFormat = "list", showAnswers =
 
 render_question_html <- function(question, question_number, dispFormat, showAnswers, shuffleAnswers) {
   # Clean up question text
-  question_text <- question$question_text
+  question_text <- remove_biorender_attribution(question$question_text)
   question_text <- sub("<p>", "", question_text) # Remove the first <p>
   question_text <- sub("</p>", "", question_text) # Remove the first </p>
   question$question_text <- question_text

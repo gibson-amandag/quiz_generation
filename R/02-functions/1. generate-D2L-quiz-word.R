@@ -97,6 +97,7 @@ italic_bold_text <- fp_text_lite(italic = TRUE, bold = TRUE)
 
 # Helper function to clean HTML tags
 clean_html_tags <- function(text) {
+  text <- remove_biorender_attribution(text)
   text <- str_replace_all(text, "<p>", "\n")
   text <- str_replace_all(text, "</p>", "")
   text <- str_replace_all(text, "<em>(.*?)</em>", "{italics}\\1{italics}") # Italics
