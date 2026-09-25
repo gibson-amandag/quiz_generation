@@ -2,9 +2,9 @@ generate_questions_html <- function(sections, dispFormat = "list", showAnswers =
   set.seed(thisSeed)
   # Initialize HTML for questions
   questions_html <- ""
+  question_number <- 1
 
   if (!showSectionTitles) {
-    question_number <- 1
     # Initialize answer key table
     answer_key_df <- data.frame(
       questionNum = integer(),
@@ -37,10 +37,20 @@ generate_questions_html <- function(sections, dispFormat = "list", showAnswers =
   }
 
   firstSection <- TRUE
+  content_open <- FALSE
 
   for (section in sections) {
-    # Add section title
-    if (showSectionTitles) {
+    show_this_section_title <- showSectionTitles || isTRUE(section$display_section_name)
+    if (show_this_section_title) {
+      if (!showSectionTitles && content_open) {
+        if (dispFormat == "list") {
+          questions_html <- paste0(questions_html, "</ol>")
+        } else if (dispFormat == "table") {
+          questions_html <- paste0(questions_html, "</table>")
+        }
+        content_open <- FALSE
+      }
+
       if ((section$section_title %in% c("Uncategorized", "Uncategorized Questions"))) {
         title <- " "
       } else {
@@ -50,13 +60,13 @@ generate_questions_html <- function(sections, dispFormat = "list", showAnswers =
         questions_html,
         "<h3>", title, "</h3>"
       )
-      question_number <- 1
     }
 
-    if (dispFormat == "list" && (showSectionTitles || firstSection == TRUE)) {
+    if (dispFormat == "list" && (showSectionTitles || !content_open)) {
       # List format
-      questions_html <- paste0(questions_html, "<ol>")
-    } else if (dispFormat == "table" && (showSectionTitles || firstSection == TRUE)) {
+      questions_html <- paste0(questions_html, "<ol start='", question_number, "'>")
+      content_open <- TRUE
+    } else if (dispFormat == "table" && (showSectionTitles || !content_open)) {
       # Start the table for the section
       questions_html <- paste0(
         questions_html,
@@ -65,6 +75,7 @@ generate_questions_html <- function(sections, dispFormat = "list", showAnswers =
         "<td style='width: 0.7in;'>Answer</th>",
         "<td>Question</th></tr>"
       )
+      content_open <- TRUE
     }
 
     if (sampledQuestions) {
@@ -151,9 +162,11 @@ generate_questions_html <- function(sections, dispFormat = "list", showAnswers =
     if (dispFormat == "list" && showSectionTitles) {
       # Close the section block for list format
       questions_html <- paste0(questions_html, "</ol>")
+      content_open <- FALSE
     } else if (dispFormat == "table" && showSectionTitles) {
       # Close the table for the section
       questions_html <- paste0(questions_html, "</table>")
+      content_open <- FALSE
     }
     firstSection <- FALSE
     if (showSectionTitles) {
@@ -161,10 +174,10 @@ generate_questions_html <- function(sections, dispFormat = "list", showAnswers =
     }
   }
 
-  if (dispFormat == "table" && !showSectionTitles) {
+  if (dispFormat == "table" && !showSectionTitles && content_open) {
     # Close the table for the section
     questions_html <- paste0(questions_html, "</table>")
-  } else if (dispFormat == "list" && !showSectionTitles) {
+  } else if (dispFormat == "list" && !showSectionTitles && content_open) {
     # Close the section block for list format
     questions_html <- paste0(questions_html, "</ol>")
   }

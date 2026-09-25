@@ -10,6 +10,17 @@ flatten_quiz_sections <- function(sections, parent_path = character(), parent_ke
     question_segment <- list()
     segment_number <- 0L
 
+    if (has_nested_sections && isTRUE(section$display_section_name)) {
+      title_section <- section
+      title_section$section_title <- paste(section_path, collapse = " / ")
+      title_section$section_key <- paste(c(section_key, "title"), collapse = "/")
+      title_section$section_group_key <- paste(section_key, collapse = "/")
+      title_section$questions <- list()
+      title_section$nested_sections <- NULL
+      title_section$contents <- NULL
+      flattened <- append(flattened, list(title_section))
+    }
+
     append_question_segment <- function() {
       if (length(question_segment) == 0) {
         return(invisible(NULL))
@@ -21,6 +32,9 @@ flatten_quiz_sections <- function(sections, parent_path = character(), parent_ke
       flat_section$section_key <- paste(c(section_key, paste0("segment:", segment_number)), collapse = "/")
       flat_section$section_group_key <- paste(section_key, collapse = "/")
       flat_section$questions <- question_segment
+      if (has_nested_sections) {
+        flat_section$display_section_name <- FALSE
+      }
       if (!isTRUE(section$is_pool)) {
         flat_section$num_items <- length(question_segment)
       }
@@ -77,7 +91,7 @@ select_questions <- function(sections, seed = 123, shuffleWithinSection = FALSE,
   }, logical(1)))
   if (has_hierarchy) {
     flattened_sections <- Filter(function(section) {
-      isTRUE(section$is_pool) || length(section$questions) > 0
+      isTRUE(section$is_pool) || isTRUE(section$display_section_name) || length(section$questions) > 0
     }, flattened_sections)
   }
 
@@ -125,6 +139,7 @@ select_questions <- function(sections, seed = 123, shuffleWithinSection = FALSE,
     list(
       section_id = section$section_id,
       section_title = section$section_title,
+      display_section_name = isTRUE(section$display_section_name),
       sampled_questions = sampled_questions
     )
   })
@@ -133,7 +148,9 @@ select_questions <- function(sections, seed = 123, shuffleWithinSection = FALSE,
     selected_questions <- sample(selected_questions)
   }
 
-  selected_questions <- Filter(function(section) length(section$sampled_questions) > 0, selected_questions)
+  selected_questions <- Filter(function(section) {
+    length(section$sampled_questions) > 0 || isTRUE(section$display_section_name)
+  }, selected_questions)
 
   return(selected_questions)
 }

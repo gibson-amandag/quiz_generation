@@ -48,6 +48,14 @@ generate_quiz_wordDoc <- function(selected_questions, shuffleLetter, quizTitle, 
   }
 
   for (section in selected_questions) {
+    if (isTRUE(section$display_section_name)) {
+      base_doc <- body_add_fpar(
+        base_doc,
+        fpar(ftext(section$section_title, prop = bold_text)),
+        style = "Normal"
+      )
+    }
+
     for (question in section$sampled_questions) {
       if (question$question_type %in% c("Multiple Choice", "True/False", "Multi-Select")) {
         base_doc <- handle_mc_tf_multi(question, base_doc, shuffleAnswers, italic_text, bold_text)

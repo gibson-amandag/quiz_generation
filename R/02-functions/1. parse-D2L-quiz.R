@@ -69,7 +69,8 @@ parse_quiz_section_children <- function(parent, ns) {
           questions = list(question),
           nested_sections = list(),
           contents = list(),
-          is_pool = FALSE
+          is_pool = FALSE,
+          display_section_name = FALSE
         )))
         section_index <- length(sections)
       }
@@ -91,6 +92,13 @@ parse_quiz_section_children <- function(parent, ns) {
 parse_section <- function(section, ns) {
   section_id <- xml_attr(section, "ident")
   section_title <- xml_attr(section, "title")
+  display_section_name_node <- xml_find_first(
+    section,
+    "./sectionproc_extension/d2l_2p0:display_section_name",
+    ns
+  )
+  display_section_name <- !inherits(display_section_name_node, "xml_missing") &&
+    tolower(trimws(xml_text(display_section_name_node))) == "yes"
   number_of_items_node <- xml_find_first(
     section,
     "./qtimetadata/qti_metadatafield[fieldlabel='qmd_numberofitems']/fieldentry",
@@ -124,7 +132,8 @@ parse_section <- function(section, ns) {
     questions = questions,
     nested_sections = nested_sections,
     contents = contents,
-    is_pool = has_pool_metadata
+    is_pool = has_pool_metadata,
+    display_section_name = display_section_name
   )
 }
 
