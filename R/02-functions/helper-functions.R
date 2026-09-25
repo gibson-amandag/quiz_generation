@@ -81,6 +81,81 @@ flatten_quiz_sections <- function(sections, parent_path = character(), parent_ke
   flattened
 }
 
+flatten_quiz_sections_for_view <- function(sections, depth = 1L, parent_key = character(), parent_path = character()) {
+  flattened <- list()
+
+  for (section_index in seq_along(sections)) {
+    section <- sections[[section_index]]
+    section_key <- c(parent_key, paste0(section_index, ":", section$section_id))
+    section_key <- paste(section_key, collapse = "/")
+    section_path <- c(parent_path, section$section_title)
+    section_path_label <- paste(section_path, collapse = " / ")
+
+    title_entry <- section
+    title_entry$section_key <- section_key
+    title_entry$section_node_key <- section_key
+    title_entry$section_path_label <- section_path_label
+    title_entry$section_title <- section$section_title
+    title_entry$questions <- list()
+    title_entry$sampled_questions <- list()
+    title_entry$force_section_title <- TRUE
+    title_entry$heading_level <- min(depth + 1L, 6L)
+    title_entry$nested_sections <- NULL
+    title_entry$contents <- NULL
+    flattened <- append(flattened, list(title_entry))
+
+    question_segment <- list()
+    segment_number <- 0L
+    append_question_segment <- function() {
+      if (length(question_segment) == 0) {
+        return(invisible(NULL))
+      }
+
+      segment_number <<- segment_number + 1L
+      question_entry <- section
+      question_entry$section_key <- paste0(section_key, "/segment:", segment_number)
+      question_entry$section_node_key <- section_key
+      question_entry$section_path_label <- section_path_label
+      question_entry$section_title <- section$section_title
+      question_entry$questions <- question_segment
+      question_entry$sampled_questions <- list()
+      question_entry$force_section_title <- FALSE
+      question_entry$nested_sections <- NULL
+      question_entry$contents <- NULL
+      flattened <<- append(flattened, list(question_entry))
+      question_segment <<- list()
+      invisible(NULL)
+    }
+
+    contents <- section$contents
+    if (is.null(contents)) {
+      contents <- lapply(seq_along(section$questions), function(index) {
+        list(type = "question", index = index)
+      })
+      contents <- c(contents, lapply(seq_along(section$nested_sections), function(index) {
+        list(type = "nested_section", index = index)
+      }))
+    }
+
+    for (content in contents) {
+      if (content$type == "question") {
+        question_segment <- append(question_segment, list(section$questions[[content$index]]))
+      } else if (content$type == "nested_section") {
+        append_question_segment()
+        nested_section <- section$nested_sections[[content$index]]
+        flattened <- c(
+          flattened,
+          flatten_quiz_sections_for_view(list(nested_section), depth + 1L, section_key, section_path)
+        )
+      }
+    }
+
+    append_question_segment()
+  }
+
+  flattened
+}
+
 # Function to randomly select questions from each section
 select_questions <- function(sections, seed = 123, shuffleWithinSection = FALSE, shuffleSections = FALSE) {
   set.seed(seed)

@@ -330,6 +330,12 @@ ui <- navbarPage(
                         "Shuffle sections:",
                         choices = c("Yes", "No"),
                         selected = "No"
+                      ),
+                      radioButtons(
+                        "display_sections",
+                        "Display sections:",
+                        choices = c("Yes", "No"),
+                        selected = "No"
                       )
                     ),
                     column(
@@ -615,9 +621,10 @@ server <- function(input, output, session) {
     quiz_data(parse_d2l_xml(input$quiz_file))
 
     # Extract section titles
-    flat_sections <- flatten_quiz_sections(quiz_data()$sections)
-    section_titles <- vapply(flat_sections, function(section) section$section_title, character(1))
-    section_keys <- vapply(flat_sections, function(section) section$section_key, character(1))
+    flat_sections <- flatten_quiz_sections_for_view(quiz_data()$sections)
+    title_sections <- Filter(function(section) isTRUE(section$force_section_title), flat_sections)
+    section_titles <- vapply(title_sections, function(section) section$section_path_label, character(1))
+    section_keys <- vapply(title_sections, function(section) section$section_node_key, character(1))
     sections <- c("All" = "All", setNames(section_keys, section_titles))
 
     # Update the section filter dropdown
@@ -643,9 +650,10 @@ server <- function(input, output, session) {
     updateTextInput(session, "file_title", value = tools::file_path_sans_ext(input$quiz_file_upload$name))
 
     # Extract section titles
-    flat_sections <- flatten_quiz_sections(quiz_data()$sections)
-    section_titles <- vapply(flat_sections, function(section) section$section_title, character(1))
-    section_keys <- vapply(flat_sections, function(section) section$section_key, character(1))
+    flat_sections <- flatten_quiz_sections_for_view(quiz_data()$sections)
+    title_sections <- Filter(function(section) isTRUE(section$force_section_title), flat_sections)
+    section_titles <- vapply(title_sections, function(section) section$section_path_label, character(1))
+    section_keys <- vapply(title_sections, function(section) section$section_node_key, character(1))
     sections <- c("All" = "All", setNames(section_keys, section_titles))
 
     # Update the section filter dropdown
@@ -660,8 +668,8 @@ server <- function(input, output, session) {
     selected_section <- input$section_filter
 
     # Filter questions based on the selected section
-    flat_sections <- flatten_quiz_sections(quiz_data()$sections)
-    section_keys <- vapply(flat_sections, function(section) section$section_key, character(1))
+    flat_sections <- flatten_quiz_sections_for_view(quiz_data()$sections)
+    section_keys <- vapply(flat_sections, function(section) section$section_node_key, character(1))
     if (is.null(selected_section) || length(selected_section) != 1 || is.na(selected_section)) {
       selected_section <- "All"
     }
@@ -670,7 +678,11 @@ server <- function(input, output, session) {
     if (identical(selected_section, "All") || is.na(selected_section_index)) {
       questions_to_display <- flat_sections
     } else {
-      questions_to_display <- list(flat_sections[[selected_section_index]])
+      selected_key <- selected_section
+      questions_to_display <- Filter(function(section) {
+        identical(section$section_node_key, selected_key) ||
+          startsWith(section$section_node_key, paste0(selected_key, "/"))
+      }, flat_sections)
     }
 
     # Generate HTML for all questions
@@ -679,7 +691,8 @@ server <- function(input, output, session) {
       dispFormat = input$view_format,
       showAnswers = ifelse(input$show_answers == "Yes", TRUE, FALSE),
       shuffleAnswers = ifelse(input$shuffle_answers == "Yes", TRUE, FALSE),
-      thisSeed = input$seed
+      thisSeed = input$seed,
+      showSectionTitles = FALSE
     )
 
     # Store the HTML content in the reactive value
@@ -990,6 +1003,7 @@ server <- function(input, output, session) {
       input$quiz_file_upload
       input$seed
       input$quiz_title
+      input$display_sections
     },
     {
       req(quiz_data()) # Ensure quiz data is available
@@ -1039,7 +1053,7 @@ server <- function(input, output, session) {
             showAnswers = FALSE,
             shuffleAnswers = TRUE, # Shuffle answers for each letterNum version
             thisSeed = as.integer(paste0(input$seed, version, letterNum)),
-            showSectionTitles = FALSE # Hide section titles
+            showSectionTitles = input$display_sections == "Yes"
             , sampledQuestions = TRUE
           )
 
@@ -1050,7 +1064,7 @@ server <- function(input, output, session) {
             showAnswers = TRUE,
             shuffleAnswers = TRUE, # Shuffle answers for each letterNum version
             thisSeed = as.integer(paste0(input$seed, version, letterNum)),
-            showSectionTitles = FALSE # Hide section titles
+            showSectionTitles = input$display_sections == "Yes"
             , sampledQuestions = TRUE
           )
 
@@ -1069,7 +1083,8 @@ server <- function(input, output, session) {
             versionNum = version,
             totalQs = numQuestions,
             seed = as.integer(paste0(input$seed, version, letterNum)),
-            shuffleAnswers = TRUE
+            shuffleAnswers = TRUE,
+            showSectionTitles = input$display_sections == "Yes"
           )
 
           # Store the HTML in the list

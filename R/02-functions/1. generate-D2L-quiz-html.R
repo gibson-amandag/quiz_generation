@@ -4,13 +4,13 @@ generate_questions_html <- function(sections, dispFormat = "list", showAnswers =
   questions_html <- ""
   question_number <- 1
 
+  answer_key_df <- data.frame(
+    questionNum = integer(),
+    correctAnswer = character(),
+    stringsAsFactors = FALSE
+  )
+
   if (!showSectionTitles) {
-    # Initialize answer key table
-    answer_key_df <- data.frame(
-      questionNum = integer(),
-      correctAnswer = character(),
-      stringsAsFactors = FALSE
-    )
     feedback_meta_df <- data.frame(
       questionNum = integer(),
       questionType = character(),
@@ -19,12 +19,6 @@ generate_questions_html <- function(sections, dispFormat = "list", showAnswers =
       stringsAsFactors = FALSE
     )
   } else {
-    answer_key_df <- data.frame(
-      questionNum = integer(),
-      correctAnswer = character(),
-      section = character(),
-      stringsAsFactors = FALSE
-    )
     feedback_meta_df <- data.frame(
       questionNum = integer(),
       questionType = character(),
@@ -40,9 +34,17 @@ generate_questions_html <- function(sections, dispFormat = "list", showAnswers =
   content_open <- FALSE
 
   for (section in sections) {
-    show_this_section_title <- showSectionTitles || isTRUE(section$display_section_name)
+    if (sampledQuestions) {
+      sectionQuestions <- section$sampled_questions
+    } else {
+      sectionQuestions <- section$questions
+    }
+
+    show_this_section_title <- isTRUE(section$force_section_title) ||
+      (showSectionTitles &&
+        (is.null(section$display_section_name) || isTRUE(section$display_section_name)))
     if (show_this_section_title) {
-      if (!showSectionTitles && content_open) {
+      if (content_open) {
         if (dispFormat == "list") {
           questions_html <- paste0(questions_html, "</ol>")
         } else if (dispFormat == "table") {
@@ -56,17 +58,19 @@ generate_questions_html <- function(sections, dispFormat = "list", showAnswers =
       } else {
         title <- section$section_title
       }
-      questions_html <- paste0(
-        questions_html,
-        "<h3>", title, "</h3>"
-      )
+      heading_level <- if (!is.null(section$heading_level)) section$heading_level else 3L
+      heading_tag <- paste0("h", min(max(as.integer(heading_level), 1L), 6L))
+      questions_html <- paste0(questions_html, "<", heading_tag, ">", title, "</", heading_tag, ">")
+      if (isTRUE(section$force_section_title)) {
+        question_number <- 1
+      }
     }
 
-    if (dispFormat == "list" && (showSectionTitles || !content_open)) {
+    if (length(sectionQuestions) > 0 && dispFormat == "list" && !content_open) {
       # List format
       questions_html <- paste0(questions_html, "<ol start='", question_number, "'>")
       content_open <- TRUE
-    } else if (dispFormat == "table" && (showSectionTitles || !content_open)) {
+    } else if (length(sectionQuestions) > 0 && dispFormat == "table" && !content_open) {
       # Start the table for the section
       questions_html <- paste0(
         questions_html,
@@ -76,12 +80,6 @@ generate_questions_html <- function(sections, dispFormat = "list", showAnswers =
         "<td>Question</th></tr>"
       )
       content_open <- TRUE
-    }
-
-    if (sampledQuestions) {
-      sectionQuestions <- section$sampled_questions
-    } else {
-      sectionQuestions <- section$questions
     }
     
     for (question in sectionQuestions) {
@@ -107,16 +105,16 @@ generate_questions_html <- function(sections, dispFormat = "list", showAnswers =
       correct_letter_clean <- gsub("<[^>]+>", "", correct_letter_clean)
     
       if (!is.null(correct_letter_clean) && length(correct_letter_clean) > 0) {
-        if (showSectionTitles) {
-          answer_key_df <- rbind(
-            answer_key_df,
-            data.frame(
-              questionNum = question_number,
-              correctAnswer = correct_letter_clean,
-              section = sectionNum,
-              stringsAsFactors = FALSE
-            )
+        answer_key_df <- rbind(
+          answer_key_df,
+          data.frame(
+            questionNum = question_number,
+            correctAnswer = correct_letter_clean,
+            stringsAsFactors = FALSE
           )
+        )
+
+        if (showSectionTitles) {
           if (question$question_type %in% c("Multiple Choice", "True/False", "Multi-Select")) {
             num_options <- length(question$answers)
             feedback_meta_df <- rbind(
@@ -132,14 +130,6 @@ generate_questions_html <- function(sections, dispFormat = "list", showAnswers =
             )
           }
         } else {
-          answer_key_df <- rbind(
-            answer_key_df,
-            data.frame(
-              questionNum = question_number,
-              correctAnswer = correct_letter_clean,
-              stringsAsFactors = FALSE
-            )
-          )
           if (question$question_type %in% c("Multiple Choice", "True/False", "Multi-Select")) {
             num_options <- length(question$answers)
             feedback_meta_df <- rbind(
@@ -159,25 +149,16 @@ generate_questions_html <- function(sections, dispFormat = "list", showAnswers =
       question_number <- question_number + 1
     }
 
-    if (dispFormat == "list" && showSectionTitles) {
-      # Close the section block for list format
-      questions_html <- paste0(questions_html, "</ol>")
-      content_open <- FALSE
-    } else if (dispFormat == "table" && showSectionTitles) {
-      # Close the table for the section
-      questions_html <- paste0(questions_html, "</table>")
-      content_open <- FALSE
-    }
     firstSection <- FALSE
     if (showSectionTitles) {
       sectionNum <- sectionNum + 1
     }
   }
 
-  if (dispFormat == "table" && !showSectionTitles && content_open) {
+  if (dispFormat == "table" && content_open) {
     # Close the table for the section
     questions_html <- paste0(questions_html, "</table>")
-  } else if (dispFormat == "list" && !showSectionTitles && content_open) {
+  } else if (dispFormat == "list" && content_open) {
     # Close the section block for list format
     questions_html <- paste0(questions_html, "</ol>")
   }
@@ -243,6 +224,11 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
     "Multiple Choice" = ,
     "True/False" = ,
     "Multi-Select" = {
+      normalized_answer_labels <- trimws(gsub("<[^>]*>", "", question$answers))
+      normalized_answer_labels <- sub("[.)]$", "", normalized_answer_labels)
+      is_sequential_letters <- length(normalized_answer_labels) > 0 &&
+        identical(unname(normalized_answer_labels), LETTERS[seq_along(normalized_answer_labels)])
+
       if (shuffleAnswers) {
         if (question$question_type == "True/False") {
           shuffleAnswers <- FALSE
@@ -253,12 +239,6 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
         if (!contains_combined_answers) {
           contains_combined_answers <- any(grepl("\\b(A\\) and B\\)|B\\) and C\\)|A\\) and C\\))\\b", question$answers, ignore.case = TRUE))
         }
-
-        # check if options are letters in order
-        # Check if the answers are sequential letters (A, B, C, D, ...)
-        is_sequential_letters <- all(
-          question$answers %in% LETTERS[1:length(question$answers)]
-        )
 
         # Disable shuffling if the answers are sequential letters
         if (is_sequential_letters) {
@@ -305,29 +285,22 @@ render_internalQuestion_html <- function(question, question_number, dispFormat, 
           )
         }
       }
-      question_html <- paste0(
-        question_html, "<ol type='A'>"
-      )
+      if (!is_sequential_letters) {
+        question_html <- paste0(question_html, "<ol type='A'>")
 
-      # Add the answer options
-      for (answer in answer_options) {
-        # Check if the answer is correct
-        is_correct <- answer %in% question$correct_answers
-        answer_class <- if (showAnswers && is_correct) "class='correct-answer'" else ""
+        for (answer in answer_options) {
+          is_correct <- answer %in% question$correct_answers
+          answer_class <- if (showAnswers && is_correct) "class='correct-answer'" else ""
+          answer <- sub("<p>", "", answer)
+          answer <- sub("</p>", "", answer)
 
-        # Remove <p> and </p> tags from the answer
-        answer <- sub("<p>", "", answer) # Remove the first <p>
-        answer <- sub("</p>", "", answer) # Remove the first </p>
-
-        question_html <- paste0(
-          question_html,
-          "<li ", answer_class, ">", answer, "</li>"
-        )
+          question_html <- paste0(
+            question_html,
+            "<li ", answer_class, ">", answer, "</li>"
+          )
+        }
+        question_html <- paste0(question_html, "</ol>")
       }
-      question_html <- paste0(
-        question_html,
-        "</ol>"
-      )
       list(html = question_html, correct_answer = correct_answer_text)
     },
     "Fill in the Blanks" = {

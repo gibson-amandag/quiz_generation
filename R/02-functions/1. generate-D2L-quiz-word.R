@@ -1,4 +1,4 @@
-generate_quiz_wordDoc <- function(selected_questions, shuffleLetter, quizTitle, versionNum=NULL, totalQs = 20, seed = 123, shuffleAnswers = FALSE, includeMCinfo = FALSE) {
+generate_quiz_wordDoc <- function(selected_questions, shuffleLetter, quizTitle, versionNum=NULL, totalQs = 20, seed = 123, shuffleAnswers = FALSE, includeMCinfo = FALSE, showSectionTitles = TRUE) {
   # Set the seed for reproducibility
   set.seed(seed)
 
@@ -48,7 +48,7 @@ generate_quiz_wordDoc <- function(selected_questions, shuffleLetter, quizTitle, 
   }
 
   for (section in selected_questions) {
-    if (isTRUE(section$display_section_name)) {
+    if (showSectionTitles && isTRUE(section$display_section_name)) {
       base_doc <- body_add_fpar(
         base_doc,
         fpar(ftext(section$section_title, prop = bold_text)),
